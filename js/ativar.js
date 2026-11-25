@@ -12,6 +12,28 @@
       button.title = show ? 'Ocultar senha' : 'Mostrar senha';
     });
   });
+  // Exibe em verde cada requisito cumprido enquanto a pessoa digita.
+  const passwordInput = document.getElementById('password');
+  const confirmInput = document.getElementById('confirm');
+  const specialCharacter = /[^\p{L}\p{N}\s]/u;
+  function updatePasswordChecks() {
+    const pwd = passwordInput.value;
+    const confirmation = confirmInput.value;
+    const requirements = [
+      ['pwd-min-length', pwd.length >= 12],
+      ['pwd-special-char', specialCharacter.test(pwd)],
+      ['pwd-match', confirmation.length > 0 && pwd === confirmation]
+    ];
+    for (const [id, valid] of requirements) {
+      const item = document.getElementById(id);
+      item.classList.toggle('valid', valid);
+      item.querySelector('.pwd-check').textContent = valid ? '✓' : '○';
+    }
+    document.getElementById('pwd-ready').hidden = !requirements.every(([, valid]) => valid);
+  }
+  passwordInput.addEventListener('input', updatePasswordChecks);
+  confirmInput.addEventListener('input', updatePasswordChecks);
+  updatePasswordChecks();
   document.getElementById('passwordForm').addEventListener('submit', async (e) => {
     e.preventDefault(); if (!app.requireConfig('passwordStatus')) return;
     const password = document.getElementById('password').value;
@@ -23,7 +45,7 @@
     if (!session) { app.status('passwordStatus','Abra o link de ativação ou recuperação enviado ao seu e-mail antes de definir a senha.','error');return; }
     const { error } = await sb.auth.updateUser({password});
     if (error) app.status('passwordStatus','Não foi possível alterar a senha. Solicite um novo link.','error');
-    else { e.target.reset(); app.status('passwordStatus','Senha definida com sucesso. Faça login para continuar.','note ok'); }
+    else { e.target.reset(); updatePasswordChecks(); app.status('passwordStatus','Senha definida com sucesso. Faça login para continuar.','note ok'); }
   });
   document.getElementById('resetForm').addEventListener('submit', async (e) => {
     e.preventDefault();if(!app.requireConfig('resetStatus'))return;
