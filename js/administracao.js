@@ -72,6 +72,96 @@
   function renderMembers(){list.replaceChildren();const q=normalize($('memberSearch').value),d=digits(q),cpfSearch=/^[\d.\-\s]+$/.test(q)&&d;const shown=members.filter(m=>!q||normalize(m.nome).includes(q)||normalize(m.matricula).includes(q)||(cpfSearch&&digits(m.cpf).includes(d)));app.status('listStatus',`Exibindo ${shown.length} de ${members.length} associados.`);if(!shown.length){list.append(el('p','small','Nenhum associado encontrado.'));return;}const fragment=document.createDocumentFragment();for(const m of shown)fragment.append(makeDetails(m));list.append(fragment);}
   async function refresh(){if(!currentAdmin)return;const n=++generation;list.replaceChildren();requests.replaceChildren();members=[];app.status('listStatus','Carregando associados…');app.status('requestsStatus','Carregando solicitações…');const valid=()=>currentAdmin&&generation===n;const results=await Promise.allSettled([allRows('associados',`id,${fields},matricula,situacao,caminho_foto,foto_pendente,foto_troca_autorizada,criado_em,data_admissao`),allRows('solicitacoes_associacao',`id,${fields},situacao,criado_em`)]);if(!valid())return;if(results[0].status==='fulfilled'){members=results[0].value;$('total').textContent=members.length;$('ativos').textContent=members.filter(m=>m.situacao==='ativo').length;$('pendentes').textContent=members.filter(m=>m.situacao==='pendente').length;renderMembers();}else{for(const id of ['total','ativos','pendentes'])$(id).textContent='—';app.status('listStatus','Falha ao consultar os associados. Confira os novos campos e as permissões.','error');}if(results[1].status==='fulfilled'){const rows=results[1].value;app.status('requestsStatus',`${rows.filter(r=>r.situacao==='pendente').length} solicitações pendentes.`);if(!rows.length)requests.append(el('p','small','Nenhuma solicitação recebida.'));for(const m of rows)requests.append(makeDetails(m,true));}else app.status('requestsStatus','Não foi possível consultar solicitações.','error');}
   $('memberSearch').addEventListener('input',()=>{if(currentAdmin)renderMembers();});$('refreshButton').addEventListener('click',refresh);
-  $('newMemberForm').addEventListener('submit',async e=>{e.preventDefault();if(!app.requireConfig('createStatus')||!currentAdmin)return;const b=$('createButton');b.disabled=true;app.status('createStatus','Enviando cadastro protegido…');try{const body={nome:$('nome').value.trim(),cpf:app.formatCpf($('cpf').value),email:$('email').value.trim(),telefone:$('telefone').value.trim()};const {data,error}=await sb.functions.invoke('criar-associado',{body});if(error)throw Error(await app.functionError(error));app.status('createStatus',`Cadastro criado: ${data.associado.matricula}. Convite enviado ao e-mail informado.`,'note ok');e.target.reset();await refresh();}catch(error){app.status('createStatus',app.errMessage(error),'error');}finally{b.disabled=false;}});
+  // Cadastro presencial completo, com os mesmos campos do formulário público.
+  const newForm=$('newMemberForm'), createButton=$('createButton');
+  const createInputs={};
+  const requiredFields=new Set(['nome','cpf','data_nascimento','email','telefone','cep','endereco','numero','bairro','cidade','estado']);
+  const ufs='AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE RJ RN RS RO RR SC SP SE TO'.split(' ');
+  const civil=['Solteiro(a)','Casado(a)','União estável','Divorciado(a)','Viúvo(a)','Outro'];
+  const existingInputs=Object.fromEntries(['nome','cpf','email','telefone'].map(key=>[key,$(key)]));
+  const sections=[
+    ['Dados pessoais',[
+      ['nome','Nome completo',140],['cpf','CPF',14],['rg','RG',30],
+      ['data_nascimento','Data de nascimento',0,'date'],['estado_civil','Estado civil',0,'select',civil],['profissao','Profissão',100]
+    ]],
+    ['Endereço residencial',[
+      ['cep','CEP',9],['endereco','Rua / Avenida',180],['numero','Número',20],['complemento','Complemento',100],
+      ['bairro','Bairro',100],['cidade','Cidade',100],['estado','Estado (UF)',0,'select',ufs]
+    ]],
+    ['Contato',[
+      ['telefone','Telefone / WhatsApp',16,'tel'],['email','E-mail',254,'email']
+    ]]
+  ];
+  newForm.replaceChildren();
+  const cepStatus=el('p','status');cepStatus.setAttribute('role','status');
+  let cepRequest=0;
+  for(const [heading,schema] of sections){
+    const h=el('h3','',heading);h.style.marginTop='18px';newForm.append(h);
+    const grid=el('div','details-grid');newForm.append(grid);
+    for(const [key,label,max,type,options] of schema){
+      const group=el('div');const required=requiredFields.has(key);
+      const lab=el('label','label',label+(required?' *':' (opcional)'));lab.htmlFor=key;
+      const input=existingInputs[key]||el(type==='select'?'select':'input');
+      input.id=key;input.name=key;input.required=required;input.autocomplete='off';
+      if(type==='select'){
+        const empty=el('option','','Selecionar');empty.value='';input.append(empty);
+        for(const value of options){const option=el('option','',value);option.value=value;input.append(option);}
+        input.style.cssText='width:100%;min-height:44px;padding:10px;border:1px solid #ccd9e7;border-radius:10px;background:#fff;color:#183353;font:inherit';
+      }else{input.type=type||'text';if(max)input.maxLength=max;}
+      if(key==='nome'||key==='endereco'||key==='email')group.style.gridColumn='1 / -1';
+      if(key==='cpf'){
+        input.inputMode='numeric';input.placeholder='000.000.000-00';
+        input.addEventListener('input',()=>{let v=digits(input.value).slice(0,11);input.value=v.slice(0,3)+(v.length>3?'.'+v.slice(3,6):'')+(v.length>6?'.'+v.slice(6,9):'')+(v.length>9?'-'+v.slice(9):'');});
+      }
+      if(key==='data_nascimento'){const now=new Date();input.max=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');}
+      if(key==='telefone'){
+        input.placeholder='(21) 99999-9999';
+        input.addEventListener('input',()=>{const v=digits(input.value).slice(0,11),split=v.length>10?7:6;input.value=v.length<=2?v:'('+v.slice(0,2)+') '+v.slice(2,split)+(v.length>split?'-'+v.slice(split):'');});
+      }
+      createInputs[key]=input;group.append(lab,input);
+      if(key==='cep'){
+        input.inputMode='numeric';input.placeholder='00000-000';input.pattern='[0-9]{5}-?[0-9]{3}';
+        input.addEventListener('input',()=>{input.value=digits(input.value).slice(0,8).replace(/^(\d{5})(\d)/,'$1-$2');cepRequest++;cepStatus.textContent='';});
+        const lookup=button('Buscar CEP',async()=>{
+          if(!currentAdmin)return;
+          const cep=digits(input.value);if(cep.length!==8){cepStatus.textContent='Informe um CEP com oito números.';return;}
+          const ticket=++cepRequest,adminId=currentAdmin.id;lookup.disabled=true;cepStatus.textContent='Consultando CEP…';
+          const valid=()=>currentAdmin?.id===adminId&&ticket===cepRequest&&digits(input.value)===cep;
+          try{
+            const res=await fetch('https://viacep.com.br/ws/'+cep+'/json/');if(!res.ok)throw Error();
+            const data=await res.json();if(!valid())return;if(data.erro)throw Error();
+            for(const [k,v] of Object.entries({endereco:data.logradouro,bairro:data.bairro,cidade:data.localidade,estado:data.uf})){if(v)createInputs[k].value=v;}
+            cepStatus.textContent='Confira o endereço e informe o número.';
+          }catch{if(valid())cepStatus.textContent='CEP não localizado ou serviço indisponível. Preencha o endereço manualmente.';}
+          finally{lookup.disabled=false;}
+        });lookup.style.marginTop='8px';group.append(lookup,cepStatus);
+      }
+      grid.append(group);
+    }
+  }
+  const guidance=el('p','small','* Campos obrigatórios. Confira os dados antes de enviar o convite.');
+  createButton.type='submit';newForm.append(guidance,createButton);
+  newForm.addEventListener('reset',()=>{cepRequest++;cepStatus.textContent='';});
+  newForm.addEventListener('submit',async e=>{
+    e.preventDefault();if(!app.requireConfig('createStatus')||!currentAdmin||createButton.disabled)return;
+    const body=Object.fromEntries(Object.entries(createInputs).map(([key,input])=>[key,input.value.trim()]));
+    for(const key of requiredFields){if(!body[key]){app.status('createStatus','Preencha todos os campos obrigatórios.','error');createInputs[key].focus();return;}}
+    if(digits(body.cpf).length!==11){app.status('createStatus','Informe o CPF com 11 números.','error');createInputs.cpf.focus();return;}
+    if(!/^\d{10,11}$/.test(digits(body.telefone))){app.status('createStatus','Informe o telefone com DDD.','error');createInputs.telefone.focus();return;}
+    if(!ufs.includes(body.estado)||digits(body.cep).length!==8){app.status('createStatus','Confira o CEP e o estado.','error');return;}
+    body.cpf=digits(body.cpf);const adminId=currentAdmin.id;
+    cepRequest++;cepStatus.textContent='';createButton.disabled=true;
+    for(const input of Object.values(createInputs))input.disabled=true;
+    app.status('createStatus','Enviando cadastro protegido…');
+    try{
+      const {data,error}=await sb.functions.invoke('criar-associado',{body});
+      if(error)throw Error(await app.functionError(error));
+      if(!data?.associado?.matricula)throw Error('Não foi possível confirmar o cadastro. Atualize a relação antes de tentar novamente.');
+      if(currentAdmin?.id!==adminId)return;
+      app.status('createStatus',`Cadastro criado: ${data.associado.matricula}. Convite enviado ao e-mail informado.`,'note ok');
+      newForm.reset();await refresh();
+    }catch(error){if(currentAdmin?.id===adminId)app.status('createStatus',app.errMessage(error),'error');}
+    finally{createButton.disabled=false;for(const input of Object.values(createInputs))input.disabled=false;}
+  });
   if(sb){const {data:{session}}=await sb.auth.getSession();if(session)await openAdmin();sb.auth.onAuthStateChange((event)=>{if(event==='SIGNED_OUT'){currentAdmin=null;clear();privateArea.hidden=true;loginArea.hidden=false;}});}
 })();
