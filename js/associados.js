@@ -10,10 +10,24 @@
   const selfieInput = document.getElementById('selfieInput');
   const galleryInput = document.getElementById('galleryInput');
   let activeMember = null;
+  let localPhotoPreview = null;
+  function mostrarFoto(url) {
+    const photo = document.getElementById('memberPhoto');
+    const empty = document.getElementById('fallbackPhoto');
+    photo.src = url; photo.hidden = false; empty.hidden = true;
+  }
+  function fotoTravada(member) { return Boolean(member && (member.caminho_foto || member.foto_pendente)); }
+  function atualizarEnvioFoto(member) {
+    const travada = fotoTravada(member);
+    document.getElementById('photoButton').disabled = travada;
+    document.querySelector('#photoButton .photo-edit').hidden = travada;
+    selfiePanel.hidden = !member || member.situacao !== 'ativo' || travada;
+    document.getElementById('pendingPhotoText').hidden = !member?.foto_pendente;
+  }
   if (!app.ready) document.getElementById('setupNotice').hidden = false;
-  document.getElementById('photoButton').addEventListener('click', () => {if(activeMember)document.getElementById('choosePhoto').click()});
-  document.getElementById('takeSelfie').addEventListener('click', () => selfieInput.click());
-  document.getElementById('choosePhoto').addEventListener('click', () => galleryInput.click());
+  document.getElementById('photoButton').addEventListener('click', () => {if(activeMember?.situacao==='ativo' && !fotoTravada(activeMember)) document.getElementById('choosePhoto').click();});
+  document.getElementById('takeSelfie').addEventListener('click', () => {if(activeMember && !fotoTravada(activeMember)) selfieInput.click();});
+  document.getElementById('choosePhoto').addEventListener('click', () => {if(activeMember && !fotoTravada(activeMember)) galleryInput.click();});
   async function prepararFoto(file) {
     if (!file || !['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > 5*1024*1024) throw new Error('Escolha uma imagem JPEG, PNG ou WebP de até 5 MB.');
     const image = new Image(); const url = URL.createObjectURL(file);
@@ -25,8 +39,33 @@
       const ctx=canvas.getContext('2d');if(!ctx)throw new Error('Não foi possível preparar a imagem.');
       let sw=iw,sh=ih,sx=0,sy=0;
       if(iw/ih>ratio){sw=ih*ratio;sx=(iw-sw)/2;}else{sh=iw/ratio;sy=(ih-sh)/2;}
-      ctx.filter='brightness(1.04) contrast(1.04)';
-      ctx.drawImage(image,sx,sy,sw,sh,0,0,w,h);
+      // Compor retrato em uma tela de 600x750 para padronizar carteirinha.
+      const portrait=document.createElement('canvas'); portrait.width=w; portrait.height=h;
+      const pctx=portrait.getContext('2d');
+      pctx.filter='brightness(1.04) contrast(1.04)';
+      pctx.drawImage(image,sx,sy,sw,sh,0,0,w,h);
+      pctx.filter='none';
+      // O modelo roda no dispositivo; a foto não é enviada ao provedor do modelo.
+      if(typeof window.SelfieSegmentation!=='function') throw new Error('A remoção do fundo está indisponível. Verifique a conexão e tente novamente.');
+      const segmenter=new window.SelfieSegmentation({locateFile:(file)=>'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/'+file});
+      let resultado=false;
+      segmenter.setOptions({modelSelection:0});
+      segmenter.onResults((r)=>{
+        if(!r.segmentationMask) return;
+        ctx.save();
+        ctx.clearRect(0,0,w,h);
+        ctx.drawImage(r.segmentationMask,0,0,w,h);
+        ctx.globalCompositeOperation='source-in';
+        ctx.drawImage(portrait,0,0,w,h);
+        ctx.globalCompositeOperation='destination-over';
+        ctx.fillStyle='#ffffff';
+        ctx.fillRect(0,0,w,h);
+        ctx.restore();
+        resultado=true;
+      });
+      try { await segmenter.send({image:portrait}); }
+      finally { if(typeof segmenter.close==='function') segmenter.close(); }
+      if(!resultado) throw new Error('Não foi possível separar o fundo desta foto. Tente outra imagem com boa iluminação.');
       const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.87));
       if(!blob)throw new Error('Não foi possível converter a fotografia.');
       return blob;
@@ -34,6 +73,7 @@
   }
   async function enviarFoto(event){
     const file=event.target.files?.[0];if(!file||!activeMember||!sb)return;
+    if(activeMember.caminho_foto || activeMember.foto_pendente) {app.status('photoStatus','Foto já aprovada ou aguardando análise. Para trocar, procure a administração.','error');event.target.value='';return;}
     const selfie=document.getElementById('takeSelfie'),gallery=document.getElementById('choosePhoto');
     selfie.disabled=true;gallery.disabled=true;app.status('photoStatus','Preparando e enviando sua fotografia…');
     try{
@@ -45,7 +85,11 @@
       if(uploadError)throw new Error('Não foi possível armazenar a foto. Verifique a conexão e as permissões.');
       const {error:rpcError}=await sb.rpc('solicitar_foto_associado',{p_caminho:path});
       if(rpcError)throw new Error('Foto enviada, mas não encaminhada à aprovação. Procure a administração.');
-      document.getElementById('pendingPhotoText').hidden=false;
+      activeMember.foto_pendente=path;
+      if (localPhotoPreview) URL.revokeObjectURL(localPhotoPreview);
+      localPhotoPreview = URL.createObjectURL(blob);
+      mostrarFoto(localPhotoPreview);
+      atualizarEnvioFoto(activeMember);
       app.status('photoStatus','Fotografia enviada! Aguarde a aprovação da administração.');
     }catch(error){app.status('photoStatus',error.message||'Erro ao enviar fotografia.','error');}
     finally{event.target.value='';selfie.disabled=false;gallery.disabled=false;}
@@ -59,8 +103,8 @@
       .eq('usuario_auth_id',user.id).maybeSingle();
     if(error){app.status('loginStatus','Não foi possível carregar seu cadastro.','error');return;}
     activeMember=person;loginPanel.hidden=true;memberPanel.hidden=false;
-    selfiePanel.hidden=!person||person.situacao!=='ativo';
-    document.getElementById('pendingPhotoText').hidden=!person?.foto_pendente;
+    atualizarEnvioFoto(person);
+    document.getElementById('fallbackPhoto').textContent=person?.foto_pendente?'AGUARDANDO APROVAÇÃO':'TOQUE PARA ENVIAR FOTO';
     if(!person){notice.hidden=false;notice.textContent='Seu usuário ainda não está vinculado a um cadastro no Colonial. Procure a administração.';card.hidden=true;return;}
     if(person.situacao!=='ativo'){notice.hidden=false;notice.textContent=`Sua situação cadastral é: ${person.situacao.toUpperCase()}. A carteirinha não está liberada.`;card.hidden=true;return;}
     notice.hidden=true;card.hidden=false;
@@ -69,13 +113,19 @@
     document.getElementById('memberStatus').textContent='ATIVO';
     document.getElementById('memberPhoto').hidden=true;
     document.getElementById('fallbackPhoto').hidden=false;
-    if(person.caminho_foto){
-      const {data:photo}=await sb.storage.from('fotos-associados').createSignedUrl(person.caminho_foto,120);
-      if(photo?.signedUrl){document.getElementById('memberPhoto').src=photo.signedUrl;document.getElementById('memberPhoto').hidden=false;document.getElementById('fallbackPhoto').hidden=true;}
+    // Mostra a foto APROVADA ou a FOTO PENDENTE como pre-visualizacao, sem
+    // dar ao associado a possibilidade de substituir a foto ja enviada.
+    const caminhoExibido = person.caminho_foto || person.foto_pendente;
+    if (caminhoExibido) {
+      const {data:photo,error:photoError}=await sb.storage.from('fotos-associados').createSignedUrl(caminhoExibido,120);
+      if (!photoError && photo?.signedUrl) mostrarFoto(photo.signedUrl);
+      else if (localPhotoPreview) mostrarFoto(localPhotoPreview);
+      else document.getElementById('fallbackPhoto').textContent='FOTO EM ANALISE';
     }
+
     const url=new URL(app.config.appBaseUrl.replace(/\/$/,'')+'/validar.html');url.searchParams.set('t',person.token_validacao);
     const qr=document.getElementById('qr');qr.replaceChildren();
-    if(window.QRCode)new window.QRCode(qr,{text:url.toString(),width:88,height:88,correctLevel:window.QRCode.CorrectLevel.M});
+    if(window.QRCode)new window.QRCode(qr,{text:url.toString(),width:54,height:54,correctLevel:window.QRCode.CorrectLevel.M});
     else{const a=document.createElement('a');a.href=url.href;a.textContent='Validar carteirinha';qr.append(a);}
     app.status('cardStatusMessage','Sua carteirinha é pessoal. A validação depende de conexão com a internet.');
   }
@@ -96,6 +146,7 @@
   });
   document.getElementById('logoutBtn').addEventListener('click',async()=>{
     if(sb)await sb.auth.signOut();memberPanel.hidden=true;loginPanel.hidden=false;card.hidden=true;activeMember=null;
+    if(localPhotoPreview){URL.revokeObjectURL(localPhotoPreview);localPhotoPreview=null;}
   });
   if(sb){const {data:{session}}=await sb.auth.getSession();if(session)await showMember();}
 })();
