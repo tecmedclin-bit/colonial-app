@@ -17,7 +17,224 @@
   const fields='nome,cpf,rg,data_nascimento,estado_civil,profissao,email,telefone,cep,endereco,numero,complemento,bairro,cidade,estado';
   async function allRows(table,columns){const out=[];const step=200;for(let start=0;;start+=step){const {data,error}=await sb.from(table).select(columns).order('id',{ascending:true}).range(start,start+step-1);if(error)throw error;out.push(...data);if(data.length<step)break;}return out.sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR',{sensitivity:'base'})||String(a.id).localeCompare(String(b.id)));}
   function fieldGrid(m,request=false){const grid=el('div','details-grid');const fields=[['Nome completo',m.nome],['CPF',formatCpf(m.cpf)],['RG',m.rg],['Nascimento',date(m.data_nascimento)],['Estado civil',m.estado_civil],['Profissão',m.profissao],['Telefone / WhatsApp',m.telefone],['E-mail',m.email],['CEP',m.cep],['Rua / Avenida',m.endereco],['Número',m.numero],['Complemento',m.complemento],['Bairro',m.bairro],['Cidade',m.cidade],['Estado',m.estado]];if(!request)fields.push(['Matrícula',m.matricula],['Data de admissão',date(m.data_admissao)]);fields.push(['Situação',String(m.situacao||'').toUpperCase()],['Cadastro recebido em',date(m.criado_em)]);for(const [k,v] of fields){const f=el('div','field');f.append(el('small','',k),el('strong','',v||'Não informado'));grid.append(f);}return grid;}
-  function makeDetails(m,request=false){const box=el('details','member');if(!request)box.dataset.memberId=String(m.id);const summary=el('summary');const title=el('div');title.append(el('h3','',m.nome),el('small','',request?'Solicitação de associação':`${m.matricula} • CPF ***.***.${digits(m.cpf).slice(6,9)}-**`));summary.append(title,el('span',`pill ${m.situacao}`,String(m.situacao).toUpperCase()));box.append(summary);const body=el('div','member-body');box.append(body);let initialized=false;box.addEventListener('toggle',()=>{if(!box.open||initialized||!currentAdmin)return;initialized=true;const printHead=el('div','print-head');printHead.append(el('h2','','COLONIAL ESPORTE CLUBE'),el('p','',request?'SOLICITAÇÃO DE ASSOCIAÇÃO':'FICHA CADASTRAL DO ASSOCIADO'));body.append(printHead);if(!request){const photos=el('div','photo-row');body.append(photos);for(const [path,label] of [[m.caminho_foto,'Fotografia aprovada'],[m.foto_pendente,'Fotografia pendente']]){if(!path)continue;const fig=el('figure'),img=el('img','photo-preview');img.alt=label;const cap=el('figcaption','',label);fig.append(img,cap);photos.append(fig);sb.storage.from('fotos-associados').createSignedUrl(path,120).then(({data,error})=>{if(!currentAdmin||!box.isConnected)return;if(!error&&data?.signedUrl)img.src=data.signedUrl;else cap.textContent=label+' — indisponível';});}if(!m.caminho_foto&&!m.foto_pendente)photos.append(el('small','','Nenhuma fotografia cadastrada.'));}body.append(fieldGrid(m,request));if(!request)body.append(makeActions(m,box));});return box;}
+  
+  function makeRequestActions(m) {
+    const row = el('div','actions');
+
+    if (m.situacao !== 'pendente') {
+      row.append(el('p','small','Solicitação já analisada.'));
+      return row;
+    }
+
+    async function processar(aprovar) {
+      if (!currentAdmin) return;
+
+      const mensagem = aprovar
+        ? 'Aprovar a solicitação de ' + m.nome + ' e enviar o convite por e-mail?'
+        : 'Rejeitar a solicitação de ' + m.nome + '?';
+
+      if (!window.confirm(mensagem)) return;
+
+      aceitar.disabled = true;
+      rejeitar.disabled = true;
+
+      const adminId = currentAdmin.id;
+
+      app.status('requestsStatus','Processando solicitação…');
+
+      try {
+        if (aprovar) {
+          const {data,error} = await sb.functions.invoke(
+            'aprovar-solicitacao',
+            {body:{solicitacao_id:String(m.id)}}
+          );
+
+          if (error) {
+            throw Error(await app.functionError(error));
+          }
+
+          if (data?.sucesso !== true) {
+            throw Error('Aprovação não confirmada.');
+          }
+
+          if (currentAdmin?.id !== adminId) return;
+
+          await refresh();
+
+          app.status(
+            'requestsStatus',
+            'Solicitação aprovada. Matrícula: ' + data.matricula + '. Convite enviado.',
+            'note ok'
+          );
+
+        } else {
+          const {error} = await sb.rpc(
+            'rejeitar_solicitacao_associacao',
+            {p_solicitacao_id:m.id}
+          );
+
+          if (error) throw Error(error.message);
+
+          if (currentAdmin?.id !== adminId) return;
+
+          await refresh();
+
+          app.status(
+            'requestsStatus',
+            'Solicitação rejeitada.',
+            'note ok'
+          );
+        }
+
+      } catch (error) {
+        if (currentAdmin?.id !== adminId) return;
+
+        await refresh();
+
+        app.status(
+          'requestsStatus',
+          app.errMessage(error),
+          'error'
+        );
+      }
+    }
+
+    const aceitar = button(
+      'Aprovar solicitação',
+      ()=>processar(true),
+      'btn small'
+    );
+
+    const rejeitar = button(
+      'Rejeitar solicitação',
+      ()=>processar(false),
+      'btn small'
+    );
+
+    rejeitar.style.background = '#b91c1c';
+    rejeitar.style.color = '#fff';
+
+    aceitar.disabled = true;
+    rejeitar.disabled = true;
+
+    row.append(aceitar,rejeitar);
+
+    sb.from('solicitacoes_associacao')
+      .select('situacao,processamento_id')
+      .eq('id',m.id)
+      .maybeSingle()
+      .then(({data,error})=>{
+        if (!currentAdmin) return;
+
+        if (!error && data &&
+            data.situacao === 'pendente' &&
+            !data.processamento_id) {
+          aceitar.disabled = false;
+          rejeitar.disabled = false;
+        } else {
+          row.append(el(
+            'p','small',
+            'Solicitação indisponível ou em processamento. Atualize e confira.'
+          ));
+        }
+      });
+
+    return row;
+  }
+
+  function makeDetails(m,request=false) {
+    const box = el('details','member');
+
+    if (!request) box.dataset.memberId = String(m.id);
+
+    const summary = el('summary');
+    const title = el('div');
+
+    title.append(
+      el('h3','',m.nome),
+      el('small','',request
+        ? 'Solicitação de associação'
+        : `${m.matricula} • CPF ***.***.${digits(m.cpf).slice(6,9)}-**`)
+    );
+
+    summary.append(
+      title,
+      el('span',`pill ${m.situacao}`,String(m.situacao).toUpperCase())
+    );
+
+    box.append(summary);
+
+    const body = el('div','member-body');
+    box.append(body);
+
+    let initialized = false;
+
+    box.addEventListener('toggle',()=>{
+
+      if (!box.open || initialized || !currentAdmin) return;
+
+      initialized = true;
+
+      const printHead = el('div','print-head');
+
+      printHead.append(
+        el('h2','','COLONIAL ESPORTE CLUBE'),
+        el('p','',request
+          ? 'SOLICITAÇÃO DE ASSOCIAÇÃO'
+          : 'FICHA CADASTRAL DO ASSOCIADO')
+      );
+
+      body.append(printHead);
+
+      if (!request) {
+        const photos = el('div','photo-row');
+        body.append(photos);
+
+        for (const [path,label] of [
+          [m.caminho_foto,'Fotografia aprovada'],
+          [m.foto_pendente,'Fotografia pendente']
+        ]) {
+          if (!path) continue;
+
+          const fig = el('figure');
+          const img = el('img','photo-preview');
+          img.alt = label;
+
+          const cap = el('figcaption','',label);
+
+          fig.append(img,cap);
+          photos.append(fig);
+
+          sb.storage.from('fotos-associados')
+            .createSignedUrl(path,120)
+            .then(({data,error})=>{
+              if (!currentAdmin || !box.isConnected) return;
+
+              if (!error && data?.signedUrl) {
+                img.src = data.signedUrl;
+              } else {
+                cap.textContent = label + ' — indisponível';
+              }
+            });
+        }
+
+        if (!m.caminho_foto && !m.foto_pendente) {
+          photos.append(el('small','','Nenhuma fotografia cadastrada.'));
+        }
+      }
+
+      body.append(fieldGrid(m,request));
+
+      body.append(
+        request
+          ? makeRequestActions(m)
+          : makeActions(m,box)
+      );
+    });
+
+    return box;
+  }
+
   function openCadastroEditor(m,box){
     if(!currentAdmin||!box.isConnected)return;
     const existing=box.querySelector('.cadastro-editor');
