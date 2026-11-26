@@ -151,7 +151,35 @@ ctx.drawImage(mask, 0, 0, w, h);
     const caminhoExibido = person.foto_pendente || person.caminho_foto;
     if (caminhoExibido) {
       const {data:photo,error:photoError}=await sb.storage.from('fotos-associados').createSignedUrl(caminhoExibido,120);
-      if (!photoError && photo?.signedUrl) mostrarFoto(photo.signedUrl);
+      
+if (!photoError && photo?.signedUrl) {
+    mostrarFoto(photo.signedUrl);
+
+    const membroAtual = person;
+    const fotoOriginal = photo.signedUrl;
+
+    try {
+        const resposta = await fetch(fotoOriginal);
+        if (!resposta.ok) {
+            throw new Error('Foto indisponível');
+        }
+
+        const imagem = await resposta.blob();
+        const fotoTratada = await prepararFoto(imagem);
+
+        if (activeMember === membroAtual) {
+            if (localPhotoPreview) {
+                URL.revokeObjectURL(localPhotoPreview);
+            }
+
+            localPhotoPreview = URL.createObjectURL(fotoTratada);
+            mostrarFoto(localPhotoPreview);
+        }
+    } catch (erro) {
+        console.warn('Não foi possível remover o fundo:', erro);
+    }
+}
+
       else if (localPhotoPreview) mostrarFoto(localPhotoPreview);
       else document.getElementById('fallbackPhoto').textContent='FOTO EM ANALISE';
     }
