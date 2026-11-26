@@ -1,139 +1,33 @@
 (async () => {
-  const app = window.colonial; const sb = app.client;
-  const loginArea = document.getElementById('adminLogin');
-  const privateArea = document.getElementById('adminContent');
-  if (!app.ready) document.getElementById('setupNotice').hidden = false;
-  let currentAdmin = null;
-  async function isAdmin() {
-    const { data: authData, error } = await sb.auth.getUser();
-    if (error || !authData.user) return false;
-    const { data: permission } = await sb.from('administradores').select('usuario_id').eq('usuario_id', authData.user.id).maybeSingle();
-    currentAdmin = permission ? authData.user : null;
-    return Boolean(permission);
+  const app=window.colonial, sb=app.client, $=id=>document.getElementById(id);
+  const loginArea=$('adminLogin'), privateArea=$('adminContent'), list=$('membersList'), requests=$('requestsList');
+  if(!app.ready) $('setupNotice').hidden=false;
+  let currentAdmin=null, members=[], generation=0;
+  function el(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;}
+  function button(text,fn,cls='btn small light'){const b=el('button',cls,text);b.type='button';b.addEventListener('click',fn);return b;}
+  const normalize=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const digits=v=>String(v??'').replace(/\D/g,'');
+  const formatCpf=v=>digits(v).replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/,'$1.$2.$3-$4');
+  const date=v=>v?String(v).slice(0,10).split('-').reverse().join('/'):'Não informado';
+  function clear(){generation++;members=[];list.replaceChildren();requests.replaceChildren();$('memberSearch').value='';for(const id of ['total','ativos','pendentes'])$(id).textContent='0';app.status('listStatus','');app.status('requestsStatus','');$('newMemberForm').reset();app.status('createStatus','');}
+  async function isAdmin(){const {data,error}=await sb.auth.getUser();if(error||!data?.user)return false;const {data:permission,error:pError}=await sb.from('administradores').select('usuario_id').eq('usuario_id',data.user.id).maybeSingle();currentAdmin=!pError&&permission?data.user:null;return Boolean(currentAdmin);}
+  async function openAdmin(){if(!await isAdmin()){clear();loginArea.hidden=false;privateArea.hidden=true;app.status('adminLoginStatus','Acesso exclusivo à equipe autorizada.','error');return;}loginArea.hidden=true;privateArea.hidden=false;await refresh();}
+  $('adminLoginForm').addEventListener('submit',async e=>{e.preventDefault();if(!app.requireConfig('adminLoginStatus'))return;const b=$('adminLoginButton');b.disabled=true;app.status('adminLoginStatus','Verificando credenciais…');try{const {error}=await sb.auth.signInWithPassword({email:$('adminEmail').value.trim(),password:$('adminPassword').value});if(error)app.status('adminLoginStatus','E-mail ou senha inválidos.','error');else await openAdmin();}catch{app.status('adminLoginStatus','Não foi possível entrar.','error');}finally{$('adminPassword').value='';b.disabled=false;}});
+  $('adminLogout').addEventListener('click',async()=>{currentAdmin=null;clear();privateArea.hidden=true;loginArea.hidden=false;const {error}=await sb.auth.signOut();if(error)app.status('adminLoginStatus','Não foi possível encerrar a sessão no servidor. Tente novamente.','error');});
+  const fields='nome,cpf,rg,data_nascimento,estado_civil,profissao,email,telefone,cep,endereco,numero,complemento,bairro,cidade,estado';
+  async function allRows(table,columns){const out=[];const step=200;for(let start=0;;start+=step){const {data,error}=await sb.from(table).select(columns).order('id',{ascending:true}).range(start,start+step-1);if(error)throw error;out.push(...data);if(data.length<step)break;}return out.sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR',{sensitivity:'base'})||String(a.id).localeCompare(String(b.id)));}
+  function fieldGrid(m,request=false){const grid=el('div','details-grid');const fields=[['Nome completo',m.nome],['CPF',formatCpf(m.cpf)],['RG',m.rg],['Nascimento',date(m.data_nascimento)],['Estado civil',m.estado_civil],['Profissão',m.profissao],['Telefone / WhatsApp',m.telefone],['E-mail',m.email],['CEP',m.cep],['Rua / Avenida',m.endereco],['Número',m.numero],['Complemento',m.complemento],['Bairro',m.bairro],['Cidade',m.cidade],['Estado',m.estado]];if(!request)fields.push(['Matrícula',m.matricula],['Data de admissão',date(m.data_admissao)]);fields.push(['Situação',String(m.situacao||'').toUpperCase()],['Cadastro recebido em',date(m.criado_em)]);for(const [k,v] of fields){const f=el('div','field');f.append(el('small','',k),el('strong','',v||'Não informado'));grid.append(f);}return grid;}
+  function makeDetails(m,request=false){const box=el('details','member');const summary=el('summary');const title=el('div');title.append(el('h3','',m.nome),el('small','',request?'Solicitação de associação':`${m.matricula} • CPF ***.***.${digits(m.cpf).slice(6,9)}-**`));summary.append(title,el('span',`pill ${m.situacao}`,String(m.situacao).toUpperCase()));box.append(summary);const body=el('div','member-body');box.append(body);let initialized=false;box.addEventListener('toggle',()=>{if(!box.open||initialized||!currentAdmin)return;initialized=true;const printHead=el('div','print-head');printHead.append(el('h2','','COLONIAL ESPORTE CLUBE'),el('p','',request?'SOLICITAÇÃO DE ASSOCIAÇÃO':'FICHA CADASTRAL DO ASSOCIADO'));body.append(printHead);if(!request){const photos=el('div','photo-row');body.append(photos);for(const [path,label] of [[m.caminho_foto,'Fotografia aprovada'],[m.foto_pendente,'Fotografia pendente']]){if(!path)continue;const fig=el('figure'),img=el('img','photo-preview');img.alt=label;const cap=el('figcaption','',label);fig.append(img,cap);photos.append(fig);sb.storage.from('fotos-associados').createSignedUrl(path,120).then(({data,error})=>{if(!currentAdmin||!box.isConnected)return;if(!error&&data?.signedUrl)img.src=data.signedUrl;else cap.textContent=label+' — indisponível';});}if(!m.caminho_foto&&!m.foto_pendente)photos.append(el('small','','Nenhuma fotografia cadastrada.'));}body.append(fieldGrid(m,request));if(!request)body.append(makeActions(m,box));});return box;}
+  function makeActions(m,box){const row=el('div','actions');function rpcBtn(label,fn,args,message,cls){const b=button(label,async()=>{if(!currentAdmin||!window.confirm(message))return;b.disabled=true;try{const {error}=await sb.rpc(fn,args);if(error){app.status('listStatus','Não foi possível concluir a operação.','error');b.disabled=false;}else await refresh();}catch{app.status('listStatus','Falha de conexão.','error');b.disabled=false;}},cls);row.append(b);}
+    for(const [label,value] of [['Ativar','ativo'],['Colocar pendente','pendente'],['Suspender','suspenso'],['Rejeitar','rejeitado']]){if(m.situacao!==value)rpcBtn(label,'definir_situacao',{p_associado_id:m.id,p_situacao:value},`Confirmar situação ${value.toUpperCase()} para ${m.nome}?`,value==='ativo'?'btn small':'btn small light');}
+    if(m.foto_pendente){rpcBtn('Aprovar foto','aprovar_foto_associado',{p_associado_id:m.id},'Aprovar esta fotografia?','btn small');rpcBtn('Rejeitar foto','rejeitar_foto_associado',{p_associado_id:m.id},'Rejeitar esta fotografia?');}
+    if(m.caminho_foto&&!m.foto_pendente){if(m.foto_troca_autorizada)row.append(el('span','pill pendente','NOVA FOTO AUTORIZADA'));else rpcBtn('Autorizar troca da foto','autorizar_troca_foto_associado',{p_associado_id:m.id},`Autorizar ${m.nome} a enviar uma nova fotografia? A atual permanece até aprovação.`);}
+    const photoLabel=el('label','btn small light',m.caminho_foto?'Atualizar foto':'Enviar foto');const file=el('input');file.type='file';file.accept='image/jpeg,image/png,image/webp';file.hidden=true;photoLabel.append(file);file.addEventListener('change',async()=>{const image=file.files?.[0];if(!image||!currentAdmin)return;if(!['image/jpeg','image/png','image/webp'].includes(image.type)||image.size>5*1024*1024){app.status('listStatus','A foto precisa ser JPEG, PNG ou WebP e ter até 5 MB.','error');file.value='';return;}file.disabled=true;app.status('listStatus','Enviando fotografia…');try{const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[image.type];const path=`${m.id}/${crypto.randomUUID()}.${ext}`;const {error:up}=await sb.storage.from('fotos-associados').upload(path,image,{contentType:image.type,upsert:false});if(up)throw Error('Não foi possível armazenar a fotografia.');const {error}=await sb.rpc('definir_foto',{p_associado_id:m.id,p_caminho:path});if(error)throw Error('Foto enviada, mas não vinculada.');await refresh();}catch(e){app.status('listStatus',e.message||'Erro ao enviar a foto.','error');}finally{file.disabled=false;file.value='';}});row.append(photoLabel);
+    row.append(button('Imprimir / salvar PDF',()=>{if(!currentAdmin)return;list.querySelectorAll('.printing').forEach(n=>n.classList.remove('printing'));box.classList.add('printing');try{window.print();}finally{box.classList.remove('printing');}}));return row;
   }
-  async function openAdmin() {
-    const allowed = await isAdmin();
-    if (!allowed) { loginArea.hidden = false; privateArea.hidden = true; app.status('adminLoginStatus', 'Acesso exclusivo à equipe autorizada.', 'error'); return; }
-    loginArea.hidden = true; privateArea.hidden = false; await refresh();
-  }
-  document.getElementById('adminLoginForm').addEventListener('submit', async e => {
-    e.preventDefault(); if (!app.requireConfig('adminLoginStatus')) return;
-    const button = document.getElementById('adminLoginButton'); button.disabled = true;
-    app.status('adminLoginStatus', 'Verificando credenciais…');
-    const { error } = await sb.auth.signInWithPassword({ email: document.getElementById('adminEmail').value.trim(), password: document.getElementById('adminPassword').value });
-    document.getElementById('adminPassword').value = '';
-    if (error) app.status('adminLoginStatus', 'E-mail ou senha inválidos.', 'error');
-    else await openAdmin();
-    button.disabled = false;
-  });
-  document.getElementById('adminLogout').addEventListener('click', async () => {
-    await sb.auth.signOut(); currentAdmin = null; privateArea.hidden = true; loginArea.hidden = false;
-  });
-  const list = document.getElementById('membersList');
-  function el(tag, className, text) { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; }
-  function maskCpf(value) { const cpf = String(value || ''); return `***.***.${cpf.slice(6,9)}-**`; }
-  async function refresh() {
-    list.replaceChildren(); app.status('listStatus', 'Carregando associados…');
-    const { data, error } = await sb.from('associados')
-      .select('id,nome,cpf,email,telefone,matricula,situacao,caminho_foto,foto_pendente,foto_troca_autorizada,criado_em')
-      .order('criado_em', { ascending: false }).limit(200);
-    if (error) { app.status('listStatus', 'Falha ao consultar o cadastro.', 'error'); return; }
-    document.getElementById('total').textContent = String(data.length);
-    document.getElementById('ativos').textContent = String(data.filter(x => x.situacao === 'ativo').length);
-    document.getElementById('pendentes').textContent = String(data.filter(x => x.situacao === 'pendente').length);
-    app.status('listStatus', `Exibindo ${data.length} registros mais recentes.`);
-    if (!data.length) { list.append(el('p','small','Nenhum associado cadastrado ainda.')); return; }
-    for (const member of data) {
-      const box = el('div','member');
-      box.append(el('h3','',member.nome));
-      box.append(el('small','',`${member.matricula} • CPF ${maskCpf(member.cpf)}`));
-      const state = el('span',`pill ${member.situacao}`,member.situacao.toUpperCase());box.append(state);
-      const row = el('div','actions');
-      const statusButtons = [['Ativar','ativo'],['Suspender','suspenso'],['Rejeitar','rejeitado']];
-      for (const [label, value] of statusButtons) {
-        if (member.situacao === value) continue;
-        const button = el('button',`btn small ${value === 'ativo' ? '' : 'light'}`,label);button.type='button';
-        button.addEventListener('click', async () => {
-          if (!window.confirm(`Confirmar situação ${value.toUpperCase()} para ${member.nome}?`)) return;
-          button.disabled = true;
-          const { error } = await sb.rpc('definir_situacao',{ p_associado_id: member.id, p_situacao: value });
-          if (error) { app.status('listStatus', 'Não foi possível alterar a situação.', 'error');button.disabled=false; }
-          else await refresh();
-        });row.append(button);
-      }
-      if (member.foto_pendente) {
-        const pending=el('div','note warning','Fotografia enviada pelo associado — aguardando aprovação.');
-        pending.style.marginTop='12px';box.append(pending);
-        const preview=el('img');preview.alt='Fotografia pendente do associado';preview.style.cssText='width:100px;height:125px;object-fit:cover;border-radius:10px;display:block;margin-top:10px';
-        box.append(preview);
-        sb.storage.from('fotos-associados').createSignedUrl(member.foto_pendente,120).then(({data,error})=>{
-          if(!error&&data?.signedUrl)preview.src=data.signedUrl;
-          else pending.textContent='Foto pendente — não foi possível abrir a prévia.';
-        });
-        for(const [label,fn,confirmation] of [
-          ['Aprovar foto','aprovar_foto_associado','Aprovar esta fotografia?'],
-          ['Rejeitar foto','rejeitar_foto_associado','Rejeitar esta fotografia?']
-        ]){
-          const button=el('button','btn small '+(fn==='rejeitar_foto_associado'?'light':''),label);button.type='button';
-          button.addEventListener('click',async()=>{
-            if(!window.confirm(confirmation))return;
-            button.disabled=true;
-            const {error}=await sb.rpc(fn,{p_associado_id:member.id});
-            if(error){app.status('listStatus','Não foi possível processar a fotografia.','error');button.disabled=false;}
-            else await refresh();
-          });row.append(button);
-        }
-      }
-      if (member.caminho_foto && !member.foto_pendente) {
-        if (member.foto_troca_autorizada) {
-          const authorized = el('span','pill pendente','NOVA FOTO AUTORIZADA');
-          row.append(authorized);
-        } else {
-          const authorize = el('button','btn small light','Autorizar troca da foto');
-          authorize.type = 'button';
-          authorize.addEventListener('click', async () => {
-            if (!window.confirm(`Autorizar ${member.nome} a enviar uma nova fotografia? A atual permanece ate aprovacao.`)) return;
-            authorize.disabled = true;
-            const {error} = await sb.rpc('autorizar_troca_foto_associado',{p_associado_id:member.id});
-            if (error) { app.status('listStatus','Nao foi possivel autorizar nova fotografia.','error'); authorize.disabled=false; }
-            else await refresh();
-          });
-          row.append(authorize);
-        }
-      }
-      const photoLabel = el('label','btn small light',member.caminho_foto?'Atualizar foto':'Enviar foto');
-      const file = el('input');file.type='file';file.accept='image/jpeg,image/png,image/webp';file.hidden=true;
-      photoLabel.append(file);
-      file.addEventListener('change', async () => {
-        const image = file.files?.[0];if (!image) return;
-        if (!['image/jpeg','image/png','image/webp'].includes(image.type) || image.size > 5*1024*1024) {
-          app.status('listStatus','A foto precisa ser JPEG, PNG ou WebP e ter até 5 MB.','error');return;
-        }
-        app.status('listStatus', 'Enviando foto para armazenamento protegido…');
-        const ext = {'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[image.type];
-        const path = `${member.id}/${crypto.randomUUID()}.${ext}`;
-        const { error: uploadError } = await sb.storage.from('fotos-associados').upload(path,image,{contentType:image.type,upsert:false});
-        if (uploadError) { app.status('listStatus','Não foi possível enviar a foto.','error');return; }
-        const { error: updateError } = await sb.rpc('definir_foto',{p_associado_id:member.id,p_caminho:path});
-        if (updateError) { app.status('listStatus','Foto enviada, mas ainda não vinculada. Avise a administração.','error');return; }
-        app.status('listStatus','Fotografia atualizada.'); await refresh();
-      });
-      row.append(photoLabel);box.append(row);list.append(box);
-    }
-  }
-  document.getElementById('refreshButton').addEventListener('click',refresh);
-  document.getElementById('newMemberForm').addEventListener('submit', async e => {
-    e.preventDefault(); if (!app.requireConfig('createStatus') || !currentAdmin) return;
-    const btn=document.getElementById('createButton');btn.disabled=true;
-    app.status('createStatus','Enviando cadastro protegido…');
-    try {
-      const body={ nome:document.getElementById('nome').value.trim(), cpf:app.formatCpf(document.getElementById('cpf').value), email:document.getElementById('email').value.trim(), telefone:document.getElementById('telefone').value.trim() };
-      const { data, error } = await sb.functions.invoke('criar-associado',{body});
-      if (error) throw new Error(await app.functionError(error));
-      app.status('createStatus',`Cadastro criado: ${data.associado.matricula}. Convite enviado ao e-mail informado.`, 'note ok');
-      e.target.reset(); await refresh();
-    } catch (error) { app.status('createStatus',app.errMessage(error),'error'); }
-    finally {btn.disabled=false;}
-  });
-  if(sb){const { data:{session} }=await sb.auth.getSession(); if(session) await openAdmin();}
+  function renderMembers(){list.replaceChildren();const q=normalize($('memberSearch').value),d=digits(q),cpfSearch=/^[\d.\-\s]+$/.test(q)&&d;const shown=members.filter(m=>!q||normalize(m.nome).includes(q)||normalize(m.matricula).includes(q)||(cpfSearch&&digits(m.cpf).includes(d)));app.status('listStatus',`Exibindo ${shown.length} de ${members.length} associados.`);if(!shown.length){list.append(el('p','small','Nenhum associado encontrado.'));return;}const fragment=document.createDocumentFragment();for(const m of shown)fragment.append(makeDetails(m));list.append(fragment);}
+  async function refresh(){if(!currentAdmin)return;const n=++generation;list.replaceChildren();requests.replaceChildren();members=[];app.status('listStatus','Carregando associados…');app.status('requestsStatus','Carregando solicitações…');const valid=()=>currentAdmin&&generation===n;const results=await Promise.allSettled([allRows('associados',`id,${fields},matricula,situacao,caminho_foto,foto_pendente,foto_troca_autorizada,criado_em,data_admissao`),allRows('solicitacoes_associacao',`id,${fields},situacao,criado_em`)]);if(!valid())return;if(results[0].status==='fulfilled'){members=results[0].value;$('total').textContent=members.length;$('ativos').textContent=members.filter(m=>m.situacao==='ativo').length;$('pendentes').textContent=members.filter(m=>m.situacao==='pendente').length;renderMembers();}else{for(const id of ['total','ativos','pendentes'])$(id).textContent='—';app.status('listStatus','Falha ao consultar os associados. Confira os novos campos e as permissões.','error');}if(results[1].status==='fulfilled'){const rows=results[1].value;app.status('requestsStatus',`${rows.filter(r=>r.situacao==='pendente').length} solicitações pendentes.`);if(!rows.length)requests.append(el('p','small','Nenhuma solicitação recebida.'));for(const m of rows)requests.append(makeDetails(m,true));}else app.status('requestsStatus','Não foi possível consultar solicitações.','error');}
+  $('memberSearch').addEventListener('input',()=>{if(currentAdmin)renderMembers();});$('refreshButton').addEventListener('click',refresh);
+  $('newMemberForm').addEventListener('submit',async e=>{e.preventDefault();if(!app.requireConfig('createStatus')||!currentAdmin)return;const b=$('createButton');b.disabled=true;app.status('createStatus','Enviando cadastro protegido…');try{const body={nome:$('nome').value.trim(),cpf:app.formatCpf($('cpf').value),email:$('email').value.trim(),telefone:$('telefone').value.trim()};const {data,error}=await sb.functions.invoke('criar-associado',{body});if(error)throw Error(await app.functionError(error));app.status('createStatus',`Cadastro criado: ${data.associado.matricula}. Convite enviado ao e-mail informado.`,'note ok');e.target.reset();await refresh();}catch(error){app.status('createStatus',app.errMessage(error),'error');}finally{b.disabled=false;}});
+  if(sb){const {data:{session}}=await sb.auth.getSession();if(session)await openAdmin();sb.auth.onAuthStateChange((event)=>{if(event==='SIGNED_OUT'){currentAdmin=null;clear();privateArea.hidden=true;loginArea.hidden=false;}});}
 })();
