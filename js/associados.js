@@ -29,7 +29,150 @@
   document.getElementById('photoButton').addEventListener('click', () => {if(activeMember?.situacao==='ativo' && !fotoTravada(activeMember)) document.getElementById('choosePhoto').click();});
   document.getElementById('takeSelfie').addEventListener('click', () => {if(activeMember && !fotoTravada(activeMember)) selfieInput.click();});
   document.getElementById('choosePhoto').addEventListener('click', () => {if(activeMember && !fotoTravada(activeMember)) galleryInput.click();});
-  async function prepararFoto(file) {
+  
+async function prepararFoto(file) {
+    if (!file ||
+        !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) ||
+        file.size > 5 * 1024 * 1024) {
+        throw new Error('Escolha uma fotografia de até 5 MB.');
+    }
+
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+    let segmenter;
+
+    try {
+        await new Promise((resolve, reject) => {
+            image.onload = resolve;
+            image.onerror = reject;
+            image.src = url;
+        });
+
+        const { ImageSegmenter, FilesetResolver } = await import(
+            'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/vision_bundle.mjs'
+        );
+
+        const vision = await FilesetResolver.forVisionTasks(
+            'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm'
+        );
+
+        segmenter = await ImageSegmenter.createFromOptions(vision, {
+            baseOptions: {
+                modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite',
+                delegate: 'CPU'
+            },
+            runningMode: 'IMAGE',
+            outputConfidenceMasks: true,
+            outputCategoryMask: false
+        });
+
+        const iw = image.naturalWidth;
+        const ih = image.naturalHeight;
+
+        if (iw < 200 || ih < 200) {
+            throw new Error('Fotografia com resolução muito baixa.');
+        }
+
+        const escala = Math.min(1, 1200 / Math.max(iw, ih));
+
+        const original = document.createElement('canvas');
+        original.width = Math.round(iw * escala);
+        original.height = Math.round(ih * escala);
+
+        const ctx = original.getContext('2d');
+        ctx.drawImage(image, 0, 0, original.width, original.height);
+
+        const mask = document.createElement('canvas');
+        let processado = false;
+
+        segmenter.segment(original, result => {
+            const fundo = result.confidenceMasks?.[0];
+
+            if (!fundo || result.confidenceMasks.length !== 6) {
+                return;
+            }
+
+            mask.width = fundo.width;
+            mask.height = fundo.height;
+
+            const mctx = mask.getContext('2d');
+            const valores = fundo.getAsFloat32Array();
+            const pixels = mctx.createImageData(mask.width, mask.height);
+
+            for (let i = 0; i < valores.length; i++) {
+                const pessoa = 1 - valores[i];
+
+                let a = Math.max(0, Math.min(1,
+                    (pessoa - 0.18) / 0.57));
+
+                a = a * a * (3 - 2 * a);
+
+                pixels.data[i * 4] = 255;
+                pixels.data[i * 4 + 1] = 255;
+                pixels.data[i * 4 + 2] = 255;
+                pixels.data[i * 4 + 3] = Math.round(a * 255);
+            }
+
+            mctx.putImageData(pixels, 0, 0);
+            processado = true;
+        });
+
+        if (!processado) {
+            throw new Error('Não foi possível separar o fundo.');
+        }
+
+        ctx.globalCompositeOperation = 'destination-in';
+        ctx.drawImage(mask, 0, 0, original.width, original.height);
+
+        ctx.globalCompositeOperation = 'destination-over';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, original.width, original.height);
+        ctx.globalCompositeOperation = 'source-over';
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 600;
+        canvas.height = 750;
+
+        const finalCtx = canvas.getContext('2d');
+        const zoom = Math.max(
+            600 / original.width,
+            750 / original.height
+        );
+
+        const largura = original.width * zoom;
+        const altura = original.height * zoom;
+
+        finalCtx.imageSmoothingEnabled = true;
+        finalCtx.imageSmoothingQuality = 'high';
+        finalCtx.fillStyle = '#ffffff';
+        finalCtx.fillRect(0, 0, 600, 750);
+
+        finalCtx.drawImage(
+            original,
+            (600 - largura) / 2,
+            (750 - altura) / 2,
+            largura,
+            altura
+        );
+
+        const blob = await new Promise(resolve =>
+            canvas.toBlob(resolve, 'image/jpeg', 0.96)
+        );
+
+        if (!blob) {
+            throw new Error('Não foi possível preparar a fotografia.');
+        }
+
+        return blob;
+
+    } finally {
+        if (segmenter) segmenter.close();
+        URL.revokeObjectURL(url);
+    }
+}
+
+async function prepararFotoAntiga(file) {
+
     if (!file || !['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > 5*1024*1024) throw new Error('Escolha uma imagem JPEG, PNG ou WebP de até 5 MB.');
     const image = new Image(); const url = URL.createObjectURL(file);
     try {
