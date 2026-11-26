@@ -127,7 +127,7 @@
 
     const url=new URL(app.config.appBaseUrl.replace(/\/$/,'')+'/validar.html');url.searchParams.set('t',person.token_validacao);
     const qr=document.getElementById('qr');qr.replaceChildren();
-    if(window.QRCode)new window.QRCode(qr,{text:url.toString(),width:62,height:62,correctLevel:window.QRCode.CorrectLevel.M});
+    if(window.QRCode)new window.QRCode(qr,{text:url.toString(),width:256,height:256,correctLevel:window.QRCode.CorrectLevel.M});
     else{const a=document.createElement('a');a.href=url.href;a.textContent='Validar carteirinha';qr.append(a);}
     app.status('cardStatusMessage','Sua carteirinha é pessoal. A validação depende de conexão com a internet.');
   }
