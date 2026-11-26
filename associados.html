@@ -1,4 +1,25 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#061d40"><title>Área do Associado • Colonial Esporte Clube</title><link rel="stylesheet" href="css/portal.css"><style>.photo-button{position:relative;display:block;flex:none;border:0;padding:0;background:transparent;border-radius:10px;cursor:pointer;color:#fff}.photo-button .photo{display:block}.photo-button .photo[hidden]{display:none!important}.photo-button .photo.empty{display:grid;place-items:center;text-align:center;padding:8px;font-size:10px}.photo-edit{position:absolute;bottom:0;left:0;right:0;background:#051b39d9;color:#fff;font-size:10px;font-weight:800;border-radius:0 0 9px 9px;padding:5px 2px;text-align:center}.photo-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.photo-actions .btn{padding:11px 6px;font-size:11px}.photo-button:focus-visible{outline:3px solid #80b9ff;outline-offset:3px}</style></head><body>
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#061d40"><title>Área do Associado • Colonial Esporte Clube</title><link rel="stylesheet" href="css/portal.css"><style>.photo-button{position:relative;display:block;flex:none;border:0;padding:0;background:transparent;border-radius:10px;cursor:pointer;color:#fff}.photo-button .photo{display:block}.photo-button .photo[hidden]{display:none!important}.photo-button .photo.empty{display:grid;place-items:center;text-align:center;padding:8px;font-size:10px}.photo-edit{position:absolute;bottom:0;left:0;right:0;background:#051b39d9;color:#fff;font-size:10px;font-weight:800;border-radius:0 0 9px 9px;padding:5px 2px;text-align:center}.photo-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.photo-actions .btn{padding:11px 6px;font-size:11px}.photo-button:disabled{cursor:default}.photo-button:disabled .photo-edit{display:none}.photo-edit[hidden]{display:none!important}.photo-button:focus-visible{outline:3px solid #80b9ff;outline-offset:3px}</style><style id="colonial-card-compact">
+/* Carteirinha horizontal: proporcao visual de cartao de plano de saude */
+.card.card-compact{width:100%;aspect-ratio:1.586;min-height:0;display:flex;flex-direction:column;padding:13px 14px;border-radius:16px;gap:0;justify-content:space-between}
+.card.card-compact[hidden]{display:none!important}
+.card-compact .card-top{gap:8px;padding-bottom:6px;min-height:34px}
+.card-compact .card-top img{height:30px;width:30px;flex:none}
+.card-compact .card-top b{font-size:10px;letter-spacing:.3px}
+.card-compact .card-top small{font-size:7px;letter-spacing:.6px;margin-top:2px}
+.card-compact .card-main{padding:6px 0 3px;gap:11px;align-items:center;flex:1;min-height:0}
+.card-compact .photo-button,.card-compact .photo{width:74px;height:91px;flex:none}
+.card-compact .photo-button .photo{border-radius:7px}
+.card-compact .info .k{margin:4px 0 2px;font-size:8px;letter-spacing:.55px}
+.card-compact .info .v{font-size:12px;line-height:1.18}
+.card-compact .chip{font-size:8px;padding:4px 8px}
+.card-compact .card-bottom{margin-top:1px;gap:8px;align-items:end;min-height:59px}
+.card-compact .card-foot{font-size:8px;line-height:1.5;letter-spacing:.1px}
+.card-compact .qr{width:60px;height:60px;min-width:60px;min-height:60px;max-height:60px;padding:3px;border-radius:6px;overflow:hidden}
+.card-compact .qr img,.card-compact .qr canvas{width:54px!important;height:54px!important}
+.card-compact .photo-edit{font-size:8px;padding:3px 1px}
+.card-compact .photo.empty{font-size:9px!important;padding:3px!important}
+@media(max-width:360px){.card.card-compact{padding:10px 11px}.card-compact .card-main{gap:7px}.card-compact .photo-button,.card-compact .photo{width:65px;height:82px}.card-compact .info .v{font-size:11px}.card-compact .qr{width:54px;height:54px;min-width:54px;min-height:54px;max-height:54px}.card-compact .qr img,.card-compact .qr canvas{width:48px!important;height:48px!important}}
+</style></head><body>
 <div class="shell">
   <header class="top"><div class="topline"><a class="brand" href="./"><img src="assets/brasao-colonial.png" alt="Brasão do Colonial"><span><b>COLONIAL ESPORTE CLUBE</b><small>DESDE 1955 • PAPUCAIA</small></span></a><a class="back" href="./">← HOME</a></div><h1>Área do associado.</h1><p>Entre para consultar sua carteirinha digital e a situação da sua associação.</p></header>
   <div class="inner"><div id="setupNotice" class="note warning" hidden>Esta etapa está pronta para conectar ao banco de dados. Nenhum CPF ou senha deve ser digitado antes da configuração.</div>
@@ -8,20 +29,21 @@
     </section>
     <section id="memberPanel" hidden><div class="row between" style="margin-bottom:16px"><h2 style="margin:0;font-size:21px">Minha carteirinha</h2><button id="logoutBtn" class="btn light small">Sair</button></div>
       <div class="note warning" id="pendingNotice" hidden>Seu cadastro existe, mas a carteirinha ainda não foi liberada pela administração.</div>
-      <div class="card" id="card" hidden><div class="card-top"><img src="assets/brasao-colonial.png" alt="Brasão original"><div><b>COLONIAL ESPORTE CLUBE</b><small>CARTEIRINHA DIGITAL DE ASSOCIADO</small></div></div>
-        <div class="card-main"><button type="button" id="photoButton" class="photo-button" aria-label="Enviar foto para minha carteirinha"><span id="fallbackPhoto" class="photo empty">TOQUE PARA ENVIAR FOTO</span><img id="memberPhoto" class="photo" alt="Foto aprovada do associado" hidden><span class="photo-edit">📷 FOTO</span></button><div class="info"><p class="k">NOME COMPLETO</p><div id="memberName" class="v"></div><p class="k">MATRÍCULA</p><div id="memberNumber" class="v"></div><p class="k">SITUAÇÃO</p><span id="memberStatus" class="chip">ATIVO</span></div></div>
-        <div class="card-bottom"><div class="card-foot">COLONIAL • DESDE 1955<br>Apresente este QR Code para validação.<br>Nenhum CPF aparece no código.</div><div class="qr" id="qr"></div></div>
+      <div class="card card-compact" id="card" hidden><div class="card-top"><img src="assets/brasao-colonial.png" alt="Brasão original"><div><b>COLONIAL ESPORTE CLUBE</b><small>CARTEIRINHA DIGITAL DE ASSOCIADO</small></div></div>
+        <div class="card-main"><button type="button" id="photoButton" class="photo-button" aria-label="Enviar foto para minha carteirinha"><span id="fallbackPhoto" class="photo empty">TOQUE PARA ENVIAR FOTO</span><img id="memberPhoto" class="photo" alt="Foto aprovada do associado" hidden><span class="photo-edit">📷 ENVIAR</span></button><div class="info"><p class="k">NOME COMPLETO</p><div id="memberName" class="v"></div><p class="k">MATRÍCULA</p><div id="memberNumber" class="v"></div><p class="k">SITUAÇÃO</p><span id="memberStatus" class="chip">ATIVO</span></div></div>
+        <div class="card-bottom"><div class="card-foot">DOCUMENTO DIGITAL • COLONIAL<br>Validade verificada online</div><div class="qr" id="qr" aria-label="QR Code de validação"></div></div>
       </div>
-      <div class="panel" id="selfiePanel" hidden><h2>Minha fotografia</h2><p>Toque na foto da carteirinha ou escolha uma opção abaixo. A imagem será ajustada para a carteirinha sem alterar seu rosto e ficará aguardando a aprovação do clube.</p>
+      <div class="panel" id="selfiePanel" hidden><h2>Minha fotografia</h2><p>Toque na foto da carteirinha ou escolha uma opção abaixo. O aplicativo tentará remover o fundo e colocá-lo branco, preservando seu rosto. A foto ficará aguardando aprovação. Após aprovada, somente a administração poderá trocá-la.</p>
         <div class="photo-actions"><button type="button" id="takeSelfie" class="btn">📷 TIRAR SELFIE</button><button type="button" id="choosePhoto" class="btn light">ESCOLHER FOTO</button></div>
         <input type="file" id="selfieInput" accept="image/jpeg,image/png,image/webp" capture="user" hidden><input type="file" id="galleryInput" accept="image/jpeg,image/png,image/webp" hidden>
-        <p id="pendingPhotoText" class="note warning" hidden>Sua foto foi enviada e aguarda aprovação da administração.</p><p id="photoStatus" class="status" role="status"></p>
+        <p id="photoStatus" class="status" role="status"></p>
       </div>
+      <p id="pendingPhotoText" class="note warning" hidden>Fotografia em análise: sua imagem já aparece como prévia, mas só será oficial após aprovação da administração.</p>
       <div class="note" style="margin-top:15px">A validação consulta a situação atual no banco. Uma carteirinha suspensa ou rejeitada deixa de ser válida.</div>
       <p id="cardStatusMessage" class="status" role="status"></p>
     </section>
     <div class="panel"><h2>Ainda não é associado?</h2><p>Entre em contato com o Colonial para obter informações sobre associação e cadastro.</p><a class="btn full light" href="https://wa.me/5521986361883?text=Ol%C3%A1%2C%20quero%20informa%C3%A7%C3%B5es%20sobre%20associa%C3%A7%C3%A3o%20no%20Colonial%20Esporte%20Clube" target="_blank" rel="noopener">FALAR COM O COLONIAL</a></div>
   </div><footer class="footer">COLONIAL ESPORTE CLUBE • PAPUCAIA, RJ<br>Seu acesso é individual. Não compartilhe sua senha.</footer>
 </div>
-<script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script><script src="js/client.js"></script><script src="js/associados.js"></script>
+<script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/selfie_segmentation.js"></script><script src="js/client.js"></script><script src="js/associados.js"></script>
 </body></html>
