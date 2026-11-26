@@ -19,6 +19,69 @@
 .card-compact .photo-edit{font-size:8px;padding:3px 1px}
 .card-compact .photo.empty{font-size:9px!important;padding:3px!important}
 @media(max-width:360px){.card.card-compact{padding:10px 11px}.card-compact .card-main{gap:7px}.card-compact .photo-button,.card-compact .photo{width:65px;height:82px}.card-compact .info .v{font-size:11px}.card-compact .qr{width:54px;height:54px;min-width:54px;min-height:54px;max-height:54px}.card-compact .qr img,.card-compact .qr canvas{width:48px!important;height:48px!important}}
+
+/* Brasão centralizado como marca-d'água */
+.card.card-compact {
+    position: relative;
+    isolation: isolate;
+}
+
+.card-compact::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: url("assets/brasao-colonial.png") center / auto 89% no-repeat;
+    opacity: 0.12;
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* QR Code ampliado */
+.card-compact .card-bottom {
+    min-height: 22px;
+    padding-right: 100px;
+}
+
+.card-compact .qr {
+    position: absolute;
+    right: 14px;
+    bottom: 13px;
+    width: 94px;
+    height: 94px;
+    min-width: 94px;
+    min-height: 94px;
+    max-height: none;
+    padding: 8px;
+    background: #ffffff;
+}
+
+.card-compact .qr img,
+.card-compact .qr canvas {
+    width: 78px !important;
+    height: 78px !important;
+    image-rendering: pixelated;
+}
+
+.card-compact #memberPhoto {
+    background: #ffffff;
+}
+
+@media (max-width: 360px) {
+    .card-compact .qr {
+        width: 82px;
+        height: 82px;
+        min-width: 82px;
+        min-height: 82px;
+        padding: 7px;
+    }
+
+    .card-compact .qr img,
+    .card-compact .qr canvas {
+        width: 68px !important;
+        height: 68px !important;
+    }
+}
+
 </style></head><body>
 <div class="shell">
   <header class="top"><div class="topline"><a class="brand" href="./"><img src="assets/brasao-colonial.png" alt="Brasão do Colonial"><span><b>COLONIAL ESPORTE CLUBE</b><small>DESDE 1955 • PAPUCAIA</small></span></a><a class="back" href="./">← HOME</a></div><h1>Área do associado.</h1><p>Entre para consultar sua carteirinha digital e a situação da sua associação.</p></header>
