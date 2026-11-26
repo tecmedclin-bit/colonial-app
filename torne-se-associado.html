@@ -41,7 +41,208 @@ $('cep').addEventListener('input',e=>{e.target.value=digits(e.target.value).slic
 $('telefone').addEventListener('input',e=>{const v=digits(e.target.value).slice(0,11);e.target.value=v.length<=2?v:'('+v.slice(0,2)+') '+v.slice(2,v.length>10?7:6)+(v.length>(v.length>10?7:6)?'-'+v.slice(v.length>10?7:6):'');});
 const now=new Date();$('data_nascimento').max=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
 $('cepBtn').addEventListener('click',async()=>{const cep=digits($('cep').value);const status=$('cepStatus');if(cep.length!==8){status.textContent='Informe um CEP com oito números.';return;}const button=$('cepBtn');button.disabled=true;status.textContent='Consultando CEP…';try{const res=await fetch('https://viacep.com.br/ws/'+cep+'/json/');if(!res.ok)throw Error();const data=await res.json();if(digits($('cep').value)!==cep)return;if(data.erro)throw Error();for(const [id,value] of Object.entries({endereco:data.logradouro,bairro:data.bairro,cidade:data.localidade,estado:data.uf})){if(value)$(id).value=value;}status.textContent='Confira o endereço e informe o número.';}catch(_){status.textContent='CEP não localizado ou serviço indisponível. Preencha o endereço manualmente.';}finally{button.disabled=false;}});
-$('joinForm').addEventListener('submit',e=>{e.preventDefault();$('sendStatus').textContent='O envio será liberado após a configuração da integração.';});
+
+const form = $('joinForm');
+const sendBtn = $('sendBtn');
+const sendStatus = $('sendStatus');
+
+let turnstileToken = '';
+let widgetId = null;
+let enviando = false;
+let concluido = false;
+
+const captcha = document.createElement('div');
+captcha.id = 'colonial-turnstile';
+captcha.style.margin = '16px 0';
+
+sendBtn.before(captcha);
+
+$('previewNotice').textContent =
+  'Preencha os dados para solicitar sua associação ao Colonial Esporte Clube.';
+
+function atualizarBotao() {
+  sendBtn.disabled =
+    !turnstileToken || enviando || concluido;
+}
+
+const configScript = document.createElement('script');
+configScript.src = 'config.js';
+
+configScript.onerror = () => {
+  sendStatus.textContent =
+    'Serviço indisponível. Atualize a página.';
+};
+
+configScript.onload = () => {
+
+  window.onColonialTurnstileReady = () => {
+
+    widgetId = window.turnstile.render(captcha, {
+      sitekey: '0x4AAAAAAGU4QD9BmLzOnqm0',
+      action: 'solicitar_associacao',
+      theme: 'light',
+      size: 'flexible',
+
+      callback: function(token) {
+        if (concluido || enviando) return;
+
+        turnstileToken = token;
+        sendStatus.textContent =
+          'Verificação de segurança concluída.';
+
+        atualizarBotao();
+      },
+
+      'expired-callback': function() {
+        turnstileToken = '';
+        atualizarBotao();
+      },
+
+      'error-callback': function() {
+        turnstileToken = '';
+        atualizarBotao();
+
+        if (!enviando && !concluido) {
+          sendStatus.textContent =
+            'Falha na verificação. Tente novamente.';
+        }
+      },
+
+      'timeout-callback': function() {
+        turnstileToken = '';
+        atualizarBotao();
+      }
+    });
+  };
+
+  const script = document.createElement('script');
+
+  script.src =
+    'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onColonialTurnstileReady';
+
+  script.async = true;
+
+  script.onerror = () => {
+    sendStatus.textContent =
+      'Não foi possível carregar a verificação de segurança.';
+  };
+
+  document.head.append(script);
+};
+
+document.head.append(configScript);
+
+sendStatus.textContent =
+  'Aguardando verificação de segurança…';
+
+form.addEventListener('submit', async e => {
+
+  e.preventDefault();
+
+  if (enviando || concluido || !turnstileToken) return;
+
+  if (!form.reportValidity()) return;
+
+  const config = window.COLONIAL_CONFIG;
+
+  if (!config?.supabaseUrl ||
+      !config?.supabasePublishableKey) {
+    sendStatus.textContent =
+      'Serviço temporariamente indisponível.';
+    return;
+  }
+
+  const campos = [
+    'nome','cpf','rg','data_nascimento',
+    'estado_civil','profissao','cep',
+    'endereco','numero','complemento',
+    'bairro','cidade','estado',
+    'telefone','email'
+  ];
+
+  const body = {};
+
+  for (const campo of campos) {
+    body[campo] = $(campo).value.trim();
+  }
+
+  body.cpf = digits(body.cpf);
+  body.confirmacao = $('confirmacao').checked;
+  body.turnstileToken = turnstileToken;
+
+  enviando = true;
+  turnstileToken = '';
+  atualizarBotao();
+
+  const controles = [...form.elements]
+    .filter(c => c !== sendBtn && !c.disabled);
+
+  controles.forEach(c => c.disabled = true);
+
+  sendBtn.textContent = 'ENVIANDO…';
+  sendStatus.textContent =
+    'Enviando sua solicitação com segurança…';
+
+  try {
+
+    const response = await fetch(
+      config.supabaseUrl +
+      '/functions/v1/solicitar-associacao',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': config.supabasePublishableKey
+        },
+        body: JSON.stringify(body)
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || data.sucesso !== true) {
+      throw Error(
+        data.erro ||
+        'Não foi possível enviar a solicitação.'
+      );
+    }
+
+    concluido = true;
+
+    form.reset();
+
+    captcha.hidden = true;
+
+    sendBtn.textContent = 'SOLICITAÇÃO ENVIADA';
+
+    sendStatus.textContent =
+      'Solicitação recebida para análise. Aguarde as orientações do clube por e-mail.';
+
+    sendStatus.style.color = '#15803d';
+
+  } catch (error) {
+
+    sendStatus.textContent =
+      error.message || 'Falha de conexão. Tente novamente.';
+
+    sendBtn.textContent = 'ENVIAR SOLICITAÇÃO';
+
+  } finally {
+
+    enviando = false;
+
+    if (!concluido) {
+      controles.forEach(c => c.disabled = false);
+
+      if (widgetId !== null && window.turnstile) {
+        window.turnstile.reset(widgetId);
+      }
+    }
+
+    atualizarBotao();
+  }
+});
+
 })();
 </script>
 </body></html>
