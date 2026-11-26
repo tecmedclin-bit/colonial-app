@@ -35,7 +35,7 @@
   async function refresh() {
     list.replaceChildren(); app.status('listStatus', 'Carregando associados…');
     const { data, error } = await sb.from('associados')
-      .select('id,nome,cpf,email,telefone,matricula,situacao,caminho_foto,foto_pendente,criado_em')
+      .select('id,nome,cpf,email,telefone,matricula,situacao,caminho_foto,foto_pendente,foto_troca_autorizada,criado_em')
       .order('criado_em', { ascending: false }).limit(200);
     if (error) { app.status('listStatus', 'Falha ao consultar o cadastro.', 'error'); return; }
     document.getElementById('total').textContent = String(data.length);
@@ -82,6 +82,23 @@
             if(error){app.status('listStatus','Não foi possível processar a fotografia.','error');button.disabled=false;}
             else await refresh();
           });row.append(button);
+        }
+      }
+      if (member.caminho_foto && !member.foto_pendente) {
+        if (member.foto_troca_autorizada) {
+          const authorized = el('span','pill pendente','NOVA FOTO AUTORIZADA');
+          row.append(authorized);
+        } else {
+          const authorize = el('button','btn small light','Autorizar troca da foto');
+          authorize.type = 'button';
+          authorize.addEventListener('click', async () => {
+            if (!window.confirm(`Autorizar ${member.nome} a enviar uma nova fotografia? A atual permanece ate aprovacao.`)) return;
+            authorize.disabled = true;
+            const {error} = await sb.rpc('autorizar_troca_foto_associado',{p_associado_id:member.id});
+            if (error) { app.status('listStatus','Nao foi possivel autorizar nova fotografia.','error'); authorize.disabled=false; }
+            else await refresh();
+          });
+          row.append(authorize);
         }
       }
       const photoLabel = el('label','btn small light',member.caminho_foto?'Atualizar foto':'Enviar foto');

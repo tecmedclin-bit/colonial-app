@@ -16,13 +16,14 @@
     const empty = document.getElementById('fallbackPhoto');
     photo.src = url; photo.hidden = false; empty.hidden = true;
   }
-  function fotoTravada(member) { return Boolean(member && (member.caminho_foto || member.foto_pendente)); }
+  function fotoTravada(member) { return Boolean(member && (member.foto_pendente || (member.caminho_foto && !member.foto_troca_autorizada))); }
   function atualizarEnvioFoto(member) {
     const travada = fotoTravada(member);
     document.getElementById('photoButton').disabled = travada;
     document.querySelector('#photoButton .photo-edit').hidden = travada;
     selfiePanel.hidden = !member || member.situacao !== 'ativo' || travada;
     document.getElementById('pendingPhotoText').hidden = !member?.foto_pendente;
+    document.getElementById('photoButton').setAttribute('aria-label',travada?'Fotografia bloqueada. Solicite autorizacao ao clube.':'Enviar ou trocar foto autorizada');
   }
   if (!app.ready) document.getElementById('setupNotice').hidden = false;
   document.getElementById('photoButton').addEventListener('click', () => {if(activeMember?.situacao==='ativo' && !fotoTravada(activeMember)) document.getElementById('choosePhoto').click();});
@@ -73,7 +74,7 @@
   }
   async function enviarFoto(event){
     const file=event.target.files?.[0];if(!file||!activeMember||!sb)return;
-    if(activeMember.caminho_foto || activeMember.foto_pendente) {app.status('photoStatus','Foto já aprovada ou aguardando análise. Para trocar, procure a administração.','error');event.target.value='';return;}
+    if(fotoTravada(activeMember)) {app.status('photoStatus','Foto já aprovada ou aguardando análise. Para trocar, procure a administração.','error');event.target.value='';return;}
     const selfie=document.getElementById('takeSelfie'),gallery=document.getElementById('choosePhoto');
     selfie.disabled=true;gallery.disabled=true;app.status('photoStatus','Preparando e enviando sua fotografia…');
     try{
@@ -86,6 +87,7 @@
       const {error:rpcError}=await sb.rpc('solicitar_foto_associado',{p_caminho:path});
       if(rpcError)throw new Error('Foto enviada, mas não encaminhada à aprovação. Procure a administração.');
       activeMember.foto_pendente=path;
+      activeMember.foto_troca_autorizada=false;
       if (localPhotoPreview) URL.revokeObjectURL(localPhotoPreview);
       localPhotoPreview = URL.createObjectURL(blob);
       mostrarFoto(localPhotoPreview);
@@ -99,7 +101,7 @@
     const {data:userData,error:userError}=await sb.auth.getUser();const user=userData?.user;
     if(userError||!user){loginPanel.hidden=false;memberPanel.hidden=true;return;}
     const {data:person,error}=await sb.from('associados')
-      .select('nome,matricula,situacao,caminho_foto,foto_pendente,token_validacao')
+      .select('nome,matricula,situacao,caminho_foto,foto_pendente,foto_troca_autorizada,token_validacao')
       .eq('usuario_auth_id',user.id).maybeSingle();
     if(error){app.status('loginStatus','Não foi possível carregar seu cadastro.','error');return;}
     activeMember=person;loginPanel.hidden=true;memberPanel.hidden=false;
@@ -115,7 +117,7 @@
     document.getElementById('fallbackPhoto').hidden=false;
     // Mostra a foto APROVADA ou a FOTO PENDENTE como pre-visualizacao, sem
     // dar ao associado a possibilidade de substituir a foto ja enviada.
-    const caminhoExibido = person.caminho_foto || person.foto_pendente;
+    const caminhoExibido = person.foto_pendente || person.caminho_foto;
     if (caminhoExibido) {
       const {data:photo,error:photoError}=await sb.storage.from('fotos-associados').createSignedUrl(caminhoExibido,120);
       if (!photoError && photo?.signedUrl) mostrarFoto(photo.signedUrl);
