@@ -55,7 +55,38 @@
         if(!r.segmentationMask) return;
         ctx.save();
         ctx.clearRect(0,0,w,h);
-        ctx.drawImage(r.segmentationMask,0,0,w,h);
+        
+const mask = document.createElement('canvas');
+mask.width = w;
+mask.height = h;
+
+const mctx = mask.getContext('2d');
+mctx.drawImage(r.segmentationMask, 0, 0, w, h);
+
+const pixels = mctx.getImageData(0, 0, w, h);
+const d = pixels.data;
+
+let minAlpha = 255;
+let maxAlpha = 0;
+
+for (let i = 0; i < d.length; i += 4) {
+    minAlpha = Math.min(minAlpha, d[i + 3]);
+    maxAlpha = Math.max(maxAlpha, d[i + 3]);
+}
+
+const useAlpha = maxAlpha - minAlpha > 30;
+
+for (let i = 0; i < d.length; i += 4) {
+    const v = useAlpha ? d[i + 3] : d[i];
+    d[i] = 255;
+    d[i + 1] = 255;
+    d[i + 2] = 255;
+    d[i + 3] = v;
+}
+
+mctx.putImageData(pixels, 0, 0);
+ctx.drawImage(mask, 0, 0, w, h);
+
         ctx.globalCompositeOperation='source-in';
         ctx.drawImage(portrait,0,0,w,h);
         ctx.globalCompositeOperation='destination-over';
