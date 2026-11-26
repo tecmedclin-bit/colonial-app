@@ -12,4 +12,32 @@
 <section class="panel" id="membersPanel"><div class="row between"><h2 style="margin:0">Relação de associados</h2><button id="refreshButton" class="btn small light">Atualizar</button></div><p>Abra um nome para consultar a ficha completa e gerenciar a situação e a fotografia.</p><div class="admin-search"><label class="label" for="memberSearch">Pesquisar associado</label><input type="text" id="memberSearch" placeholder="Nome, CPF ou matrícula" autocomplete="off"></div><p id="listStatus" class="status" role="status"></p><div id="membersList"></div></section>
 <section class="panel" id="requestsPanel"><h2>Solicitações de associação</h2><p>Consulta das fichas recebidas pelo aplicativo. A aprovação e o envio de convites por esta lista serão habilitados em uma etapa posterior.</p><p id="requestsStatus" class="status" role="status"></p><div id="requestsList"></div></section>
 </section></div><footer class="footer">Acesso administrativo restrito • Colonial Esporte Clube</footer></div>
-<script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script><script src="js/client.js"></script><script src="js/administracao.js?v=2"></script></body></html>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/client.js"></script>
+<script src="js/administracao.js?v=5"></script>
+
+<script>
+(function () {
+  const celular = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+  if (!celular) {
+    document.querySelectorAll(
+      '.topline a.brand, .topline a.back'
+    ).forEach(function (link) {
+      link.href = './administracao.html';
+    });
+
+    const inicio = document.querySelector('.topline .back');
+
+    if (inicio) {
+      inicio.textContent = '← ADMINISTRAÇÃO';
+    }
+  }
+})();
+</script>
+
+</body>
+</html>
+
