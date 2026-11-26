@@ -85,7 +85,67 @@ for (let i = 0; i < d.length; i += 4) {
 }
 
 mctx.putImageData(pixels, 0, 0);
+
+// Refinamento do contorno da fotografia
+const alpha = new Uint8ClampedArray(w * h);
+
+for (let i = 0; i < alpha.length; i++) {
+    alpha[i] = d[i * 4 + 3];
+}
+
+function refinarMascara(src, raio, expandir) {
+    const temp = new Uint8ClampedArray(src.length);
+    const out = new Uint8ClampedArray(src.length);
+
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            let v = expandir ? 0 : 255;
+
+            for (let k = -raio; k <= raio; k++) {
+                const xx = Math.max(0, Math.min(w - 1, x + k));
+                const a = src[y * w + xx];
+                v = expandir ? Math.max(v, a) : Math.min(v, a);
+            }
+
+            temp[y * w + x] = v;
+        }
+    }
+
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            let v = expandir ? 0 : 255;
+
+            for (let k = -raio; k <= raio; k++) {
+                const yy = Math.max(0, Math.min(h - 1, y + k));
+                const a = temp[yy * w + x];
+                v = expandir ? Math.max(v, a) : Math.min(v, a);
+            }
+
+            out[y * w + x] = v;
+        }
+    }
+
+    return out;
+}
+
+// Corrigir pequenas falhas no contorno
+const fechada = refinarMascara(
+    refinarMascara(alpha, 5, true), 5, false
+);
+
+const refinada = refinarMascara(fechada, 2, true);
+
+for (let i = 0; i < refinada.length; i++) {
+    d[i * 4 + 3] = refinada[i];
+}
+
+mctx.putImageData(pixels, 0, 0);
+
+// Suavizar as bordas do recorte
+ctx.filter = 'blur(1px)';
 ctx.drawImage(mask, 0, 0, w, h);
+ctx.filter = 'none';
+
 
         ctx.globalCompositeOperation='source-in';
         ctx.drawImage(portrait,0,0,w,h);
