@@ -66,7 +66,77 @@
     if(m.foto_pendente){rpcBtn('Aprovar foto','aprovar_foto_associado',{p_associado_id:m.id},'Aprovar esta fotografia?','btn small');rpcBtn('Rejeitar foto','rejeitar_foto_associado',{p_associado_id:m.id},'Rejeitar esta fotografia?');}
     if(m.caminho_foto&&!m.foto_pendente){if(m.foto_troca_autorizada)row.append(el('span','pill pendente','NOVA FOTO AUTORIZADA'));else rpcBtn('Autorizar troca da foto','autorizar_troca_foto_associado',{p_associado_id:m.id},`Autorizar ${m.nome} a enviar uma nova fotografia? A atual permanece até aprovação.`);}
     const photoLabel=el('label','btn small light',m.caminho_foto?'Atualizar foto':'Enviar foto');const file=el('input');file.type='file';file.accept='image/jpeg,image/png,image/webp';file.hidden=true;photoLabel.append(file);file.addEventListener('change',async()=>{const image=file.files?.[0];if(!image||!currentAdmin)return;if(!['image/jpeg','image/png','image/webp'].includes(image.type)||image.size>5*1024*1024){app.status('listStatus','A foto precisa ser JPEG, PNG ou WebP e ter até 5 MB.','error');file.value='';return;}file.disabled=true;app.status('listStatus','Enviando fotografia…');try{const ext={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[image.type];const path=`${m.id}/${crypto.randomUUID()}.${ext}`;const {error:up}=await sb.storage.from('fotos-associados').upload(path,image,{contentType:image.type,upsert:false});if(up)throw Error('Não foi possível armazenar a fotografia.');const {error}=await sb.rpc('definir_foto',{p_associado_id:m.id,p_caminho:path});if(error)throw Error('Foto enviada, mas não vinculada.');await refresh();}catch(e){app.status('listStatus',e.message||'Erro ao enviar a foto.','error');}finally{file.disabled=false;file.value='';}});row.append(photoLabel);
-    row.append(button('Editar cadastro',()=>openCadastroEditor(m,box),'btn small'));
+    
+row.append(button('Editar cadastro',()=>openCadastroEditor(m,box),'btn small'));
+
+if (['pendente','suspenso','rejeitado'].includes(m.situacao)) {
+
+  const excluir = button('Excluir associado', async () => {
+
+    if (!currentAdmin || excluir.disabled) return;
+
+    const confirmacao = window.prompt(
+      'ATENÇÃO!\n\n' +
+      'Deseja excluir definitivamente ' + m.nome + '?\n\n' +
+      'A ficha, a conta de acesso e as fotografias serão removidas.\n\n' +
+      'Digite EXCLUIR para confirmar.'
+    );
+
+    if (confirmacao !== 'EXCLUIR') return;
+
+    excluir.disabled = true;
+
+    app.status('listStatus','Excluindo associado…');
+
+    try {
+
+      const { data, error } = await sb.functions.invoke(
+        'excluir-associado',
+        {
+          body: {
+            associado_id: String(m.id),
+            confirmacao: 'EXCLUIR'
+          }
+        }
+      );
+
+      if (error) {
+        throw Error(await app.functionError(error));
+      }
+
+      if (data?.sucesso !== true) {
+        throw Error('Exclusão não confirmada.');
+      }
+
+      await refresh();
+
+      app.status(
+        'listStatus',
+        'Associado excluído definitivamente.',
+        'note ok'
+      );
+
+    } catch (error) {
+
+      app.status(
+        'listStatus',
+        app.errMessage(error),
+        'error'
+      );
+
+    } finally {
+      excluir.disabled = false;
+    }
+
+  }, 'btn small');
+
+  excluir.style.background = '#b91c1c';
+  excluir.style.color = '#ffffff';
+  excluir.style.borderColor = '#b91c1c';
+
+  row.append(excluir);
+}
+
     row.append(button('Imprimir / salvar PDF',()=>{if(!currentAdmin)return;list.querySelectorAll('.printing').forEach(n=>n.classList.remove('printing'));box.classList.add('printing');try{window.print();}finally{box.classList.remove('printing');}}));return row;
   }
   function renderMembers(){list.replaceChildren();const q=normalize($('memberSearch').value),d=digits(q),cpfSearch=/^[\d.\-\s]+$/.test(q)&&d;const shown=members.filter(m=>!q||normalize(m.nome).includes(q)||normalize(m.matricula).includes(q)||(cpfSearch&&digits(m.cpf).includes(d)));app.status('listStatus',`Exibindo ${shown.length} de ${members.length} associados.`);if(!shown.length){list.append(el('p','small','Nenhum associado encontrado.'));return;}const fragment=document.createDocumentFragment();for(const m of shown)fragment.append(makeDetails(m));list.append(fragment);}
