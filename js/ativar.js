@@ -20,7 +20,7 @@
     const pwd = passwordInput.value;
     const confirmation = confirmInput.value;
     const requirements = [
-      ['pwd-min-length', pwd.length >= 12],
+      ['pwd-min-length', pwd.length >= 8],
       ['pwd-special-char', specialCharacter.test(pwd)],
       ['pwd-match', confirmation.length > 0 && pwd === confirmation]
     ];
@@ -38,7 +38,7 @@
     e.preventDefault(); if (!app.requireConfig('passwordStatus')) return;
     const password = document.getElementById('password').value;
     const confirm = document.getElementById('confirm').value;
-    if (password.length < 12) { app.status('passwordStatus','A senha precisa ter pelo menos 12 caracteres.','error');return; }
+    if (password.length < 8) { app.status('passwordStatus','A senha precisa ter pelo menos 8 caracteres.','error');return; }
     if (!/[^\p{L}\p{N}\s]/u.test(password)) { app.status('passwordStatus','Inclua pelo menos um caractere especial, como @, # ou !.','error');return; }
     if (password !== confirm) { app.status('passwordStatus','As duas senhas devem ser iguais.','error');return; }
     const { data:{session} } = await sb.auth.getSession();
