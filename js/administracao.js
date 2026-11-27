@@ -299,7 +299,12 @@ if (['pendente','suspenso','rejeitado'].includes(m.situacao)) {
       'Digite EXCLUIR para confirmar.'
     );
 
-    if (confirmacao !== 'EXCLUIR') return;
+    if (confirmacao === null) return;
+
+if (confirmacao.trim().toUpperCase() !== 'EXCLUIR') {
+    alert('Digite a palavra EXCLUIR para confirmar.');
+    return;
+}
 
     excluir.disabled = true;
 
