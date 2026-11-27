@@ -397,10 +397,7 @@ if (!photoError && photo?.signedUrl) {
   const bioKey = 'colonial-bio-preferencia-v2';
   const btn = document.getElementById('loginBtn');
   const logout = document.getElementById('logoutBtn');
-  const bioDisponivel = Boolean(sb && window.isSecureContext &&
-    window.PublicKeyCredential &&
-    typeof sb.auth.registerPasskey === 'function' &&
-    typeof sb.auth.signInWithPasskey === 'function');
+  const bioDisponivel = false;
 
   function bioPreferida() {
     try { return localStorage.getItem(bioKey); }
