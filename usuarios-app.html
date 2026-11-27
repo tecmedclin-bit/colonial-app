@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#061d40">
+
+<title>Usuários do App | Colonial</title>
+
+<link rel="stylesheet" href="css/portal.css">
+
+<style>
+.shell {
+    width: min(100%, 1120px);
+}
+
+.inner {
+    padding: 22px;
+}
+
+.usuario {
+    background: white;
+    border: 1px solid #dce5ef;
+    border-radius: 12px;
+    padding: 17px;
+    margin-bottom: 12px;
+    overflow-wrap: anywhere;
+}
+
+.usuario h3 {
+    margin: 0 0 10px;
+    color: #16395f;
+    font-size: 16px;
+}
+
+.usuario p {
+    margin: 6px 0;
+    font-size: 13px;
+}
+
+.situacao {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: bold;
+    margin: 8px 0;
+}
+
+.ativo {
+    color: #166534;
+    background: #dcfce7;
+}
+
+.suspenso {
+    color: #991b1b;
+    background: #fee2e2;
+}
+
+.suspender {
+    background: #b91c1c !important;
+    color: white !important;
+    border-color: #b91c1c !important;
+}
+
+.estatisticas {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.indicador {
+    background: #061d40;
+    color: white;
+    padding: 16px 8px;
+    text-align: center;
+    border-radius: 12px;
+}
+
+.indicador strong {
+    display: block;
+    font-size: 27px;
+    margin-bottom: 6px;
+}
+
+.indicador span {
+    font-size: 11px;
+}
+
+[hidden] {
+    display: none !important;
+}
+</style>
+</head>
+
+<body>
+
+<div class="shell">
+
+<header class="top">
+
+<div class="topline">
+
+<a class="brand" href="administracao.html">
+
+<img src="assets/brasao-colonial.png"
+     alt="Brasão oficial do Colonial">
+
+<span>
+<b>COLONIAL ESPORTE CLUBE</b>
+<small>GESTÃO DO APLICATIVO</small>
+</span>
+
+</a>
+
+<a class="back" href="administracao.html">
+← VOLTAR
+</a>
+
+</div>
+
+<h1>Usuários do aplicativo.</h1>
+
+<p>Gerenciamento dos usuários não associados.</p>
+
+</header>
+
+<main class="inner">
+
+<p id="acessoStatus" class="status" role="status">
+Verificando autorização...
+</p>
+
+<a id="voltar" class="btn full"
+   href="administracao.html" hidden>
+ACESSAR ADMINISTRAÇÃO
+</a>
+
+<section id="conteudo" hidden>
+
+<div class="estatisticas">
+
+<div class="indicador">
+<strong id="total">—</strong>
+<span>CADASTRADOS</span>
+</div>
+
+<div class="indicador">
+<strong id="ativos">—</strong>
+<span>ATIVOS</span>
+</div>
+
+<div class="indicador">
+<strong id="suspensos">—</strong>
+<span>SUSPENSOS</span>
+</div>
+
+</div>
+
+<section class="panel">
+
+<h2>Relação de usuários</h2>
+
+<p>
+Consulte e gerencie os usuários cadastrados
+no aplicativo do Colonial.
+</p>
+
+<label class="label" for="pesquisa">
+Pesquisar usuário
+</label>
+
+<input id="pesquisa" type="search"
+       placeholder="Nome, e-mail ou telefone"
+       autocomplete="off">
+
+<button id="atualizar" class="btn small light">
+Atualizar relação
+</button>
+
+<p id="status" class="status" role="status"></p>
+
+<div id="lista"></div>
+
+</section>
+
+</section>
+
+</main>
+
+<footer class="footer">
+Acesso administrativo restrito • Colonial Esporte Clube
+</footer>
+
+</div>
+
+<script src="config.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<script src="js/client.js"></script>
+
+<script>
+
+const sb = window.colonial?.client;
+const $ = id => document.getElementById(id);
+
+let usuarios = [];
+let administrador = null;
+let carregando = false;
+
+function mensagem(texto, tipo = '') {
+    $('status').textContent = texto;
+    $('status').className = 'status ' + tipo;
+}
+
+function bloquearAcesso() {
+
+    administrador = null;
+    usuarios = [];
+
+    $('lista').replaceChildren();
+    $('conteudo').hidden = true;
+    $('voltar').hidden = false;
+
+    $('acessoStatus').textContent =
+        'Acesso exclusivo aos administradores autorizados.';
+
+}
+
+async function verificarAdmin() {
+
+    if (!sb) return false;
+
+    const { data, error } = await sb.auth.getUser();
+
+    if (error || !data?.user) return false;
+
+    const consulta = await sb
+        .from('administradores')
+        .select('usuario_id')
+        .eq('usuario_id', data.user.id)
+        .maybeSingle();
+
+    if (consulta.error || !consulta.data) {
+        return false;
+    }
+
+    administrador = data.user.id;
+
+    return true;
+}
+
+function normalizar(valor) {
+
+    return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+
+}
+
+function criarElemento(tag, classe, texto) {
+
+    const elemento = document.createElement(tag);
+
+    if (classe) elemento.className = classe;
+
+    if (texto !== undefined) {
+        elemento.textContent = texto;
+    }
+
+    return elemento;
+}
+
+function renderizar() {
+
+    if (!administrador) return;
+
+    const busca = normalizar($('pesquisa').value);
+
+    const numeros = busca.replace(/\D/g, '');
+
+    const buscaTelefone = /^[\d\s()+.-]+$/.test(busca)
+        && numeros.length > 0;
+
+    const filtrados = usuarios.filter(usuario => {
+
+        return !busca
+            || normalizar(usuario.nome).includes(busca)
+            || normalizar(usuario.email).includes(busca)
+            || (
+                buscaTelefone &&
+                String(usuario.telefone || '')
+                    .replace(/\D/g, '')
+                    .includes(numeros)
+            );
+
+    });
+
+    $('lista').replaceChildren();
+
+    mensagem(
+        'Exibindo ' + filtrados.length +
+        ' de ' + usuarios.length + ' usuários.'
+    );
+
+    if (!filtrados.length) {
+
+        $('lista').append(
+            criarElemento(
+                'p', 'small',
+                'Nenhum usuário encontrado.'
+            )
+        );
+
+        return;
+    }
+
+    for (const usuario of filtrados) {
+
+        const quadro = criarElemento('article', 'usuario');
+
+        quadro.append(
+            criarElemento('h3', '', usuario.nome)
+        );
+
+        quadro.append(
+            criarElemento('p', '', 'E-mail: ' + usuario.email)
+        );
+
+        quadro.append(
+            criarElemento('p', '', 'Telefone: ' + usuario.telefone)
+        );
+
+        quadro.append(
+            criarElemento(
+                'p', '',
+                'Cadastro: ' +
+                new Date(usuario.criado_em)
+                    .toLocaleString('pt-BR')
+            )
+        );
+
+        quadro.append(
+            criarElemento(
+                'span',
+                'situacao ' + usuario.situacao,
+                usuario.situacao.toUpperCase()
+            )
+        );
+
+        const acoes = criarElemento('div', 'actions');
+
+        const ativo = usuario.situacao === 'ativo';
+
+        const botao = criarElemento(
+            'button',
+            ativo ? 'btn small suspender' : 'btn small',
+            ativo ? 'Suspender acesso' : 'Reativar acesso'
+        );
+
+        botao.type = 'button';
+
+        botao.addEventListener('click', async () => {
+
+            if (!administrador || botao.disabled) return;
+
+            const novaSituacao = ativo
+                ? 'suspenso'
+                : 'ativo';
+
+            const confirmar = window.confirm(
+                (ativo ? 'Suspender' : 'Reativar') +
+                ' o acesso de ' + usuario.nome + '?'
+            );
+
+            if (!confirmar) return;
+
+            botao.disabled = true;
+
+            mensagem('Atualizando situação...');
+
+            try {
+
+                if (!await verificarAdmin()) {
+                    bloquearAcesso();
+                    return;
+                }
+
+                const { error } = await sb.rpc(
+                    'definir_situacao_usuario_app',
+                    {
+                        p_usuario_id: usuario.usuario_id,
+                        p_situacao: novaSituacao
+                    }
+                );
+
+                if (error) throw error;
+
+                await carregar();
+
+            } catch (erro) {
+
+                mensagem(
+                    'Não foi possível alterar a situação: ' +
+                    erro.message,
+                    'error'
+                );
+
+            } finally {
+
+                botao.disabled = false;
+
+            }
+
+        });
+
+        acoes.append(botao);
+        quadro.append(acoes);
+
+        $('lista').append(quadro);
+
+    }
+
+}
+
+async function carregar() {
+
+    if (carregando) return;
+
+    carregando = true;
+
+    $('atualizar').disabled = true;
+
+    mensagem('Carregando usuários...');
+
+    try {
+
+        if (!await verificarAdmin()) {
+            bloquearAcesso();
+            return;
+        }
+
+        const adminAtual = administrador;
+        const registros = [];
+        const tamanho = 200;
+
+        for (let inicio = 0; ; inicio += tamanho) {
+
+            const { data, error } = await sb
+                .from('usuarios_app')
+                .select(
+                    'usuario_id,nome,email,telefone,situacao,criado_em'
+                )
+                .order('usuario_id')
+                .range(inicio, inicio + tamanho - 1);
+
+            if (error) throw error;
+
+            if (administrador !== adminAtual) return;
+
+            registros.push(...data);
+
+            if (data.length < tamanho) break;
+
+        }
+
+        usuarios = registros.sort(
+            (a, b) => a.nome.localeCompare(b.nome, 'pt-BR')
+        );
+
+        $('total').textContent = usuarios.length;
+
+        $('ativos').textContent = usuarios.filter(
+            u => u.situacao === 'ativo'
+        ).length;
+
+        $('suspensos').textContent = usuarios.filter(
+            u => u.situacao === 'suspenso'
+        ).length;
+
+        renderizar();
+
+    } catch (erro) {
+
+        usuarios = [];
+
+        $('lista').replaceChildren();
+
+        $('total').textContent = '—';
+        $('ativos').textContent = '—';
+        $('suspensos').textContent = '—';
+
+        mensagem(
+            'Erro ao consultar os usuários: ' + erro.message,
+            'error'
+        );
+
+    } finally {
+
+        carregando = false;
+        $('atualizar').disabled = false;
+
+    }
+
+}
+
+$('pesquisa').addEventListener('input', renderizar);
+
+$('atualizar').addEventListener('click', carregar);
+
+async function iniciar() {
+
+    try {
+
+        if (!await verificarAdmin()) {
+            bloquearAcesso();
+            return;
+        }
+
+        $('acessoStatus').textContent = '';
+        $('conteudo').hidden = false;
+
+        await carregar();
+
+    } catch (erro) {
+
+        bloquearAcesso();
+
+    }
+
+}
+
+if (sb) {
+
+    sb.auth.onAuthStateChange(evento => {
+
+        if (evento === 'SIGNED_OUT') {
+            bloquearAcesso();
+        }
+
+    });
+
+}
+
+iniciar();
+
+</script>
+
+</body>
+</html>
