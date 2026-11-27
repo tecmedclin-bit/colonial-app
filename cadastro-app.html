@@ -292,7 +292,8 @@ async function finalizarCadastro() {
 
         return;
     }
-
+location.replace('./?inicio=1');
+return;
     $('titulo').textContent = 'Bem-vindo!';
 
     mensagem(
@@ -472,10 +473,12 @@ async function iniciar() {
         if (error) throw error;
 
         if (data.session) {
-            await finalizarCadastro();
-        } else {
-            mostrarCadastro();
-        }
+    await finalizarCadastro();
+} else if (new URLSearchParams(location.search).get('modo') === 'login') {
+    mostrarLogin();
+} else {
+    mostrarCadastro();
+}
 
     } catch (erro) {
         mensagem(erro.message, 'error');
