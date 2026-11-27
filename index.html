@@ -264,6 +264,7 @@
     </section>
     <section class="home-section sports-section" id="sportsNews" aria-labelledby="sportsHeading">
       <div class="section-top"><h2 id="sportsHeading">Novidades esportivas</h2><span>Vem aí!</span></div>
+      <div class="cms-feed" id="cms-novidades_esportivas" hidden></div>
       <div class="sports-list">
         <article class="sports-card">
           <div class="sports-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="13"/><path d="M3 16h26M16 3v26M6.8 6.8c11 0 18.4 7.4 18.4 18.4M25.2 6.8c-11 0-18.4 7.4-18.4 18.4"/></svg></div>
@@ -289,6 +290,7 @@
     </section>
 
 
+    <section class="home-section" id="cms-comunicados-section" hidden><div class="section-top"><h2>Comunicados</h2><span>Informações do clube</span></div><div class="cms-feed" id="cms-comunicados" hidden></div></section>
     <section class="home-section"><div class="section-top"><h2>Fale com o clube</h2></div><div class="social-card"><div><b>Colonial Esporte Clube</b><p>Saiba mais sobre atividades, associação e utilização dos espaços.</p></div><a href="https://wa.me/5521986361883" target="_blank" rel="noopener">WhatsApp ↗</a></div></section>
     <p class="disclaimer" id="homeDisclaimer">Área do associado e carteirinha digital disponíveis. O módulo de reservas está em preparação.</p>
   </main>
@@ -390,12 +392,39 @@
  // Conteúdo dinâmico: a RLS do Supabase autoriza cada registro e cada mídia.
  const cmsCategorias={noticia:'NOTÍCIA',evento:'AGENDA DO COLONIAL',publicidade:'PUBLICIDADE',vantagem:'CLUBE DE VANTAGENS'};
  const cmsCards=new Map();let cmsSeq=0,cmsOwner=null,cmsAtivo=false;
- const cmsFeeds=Object.fromEntries(Object.keys(cmsCategorias).map(k=>[k,document.getElementById('cms-'+k)]));
+ const cmsSections={noticias:'noticia',agenda:'evento',patrocinadores:'publicidade',novidades_esportivas:'novidades_esportivas',vantagens:'vantagem',comunicados:'comunicados'};
+ const cmsAllowed={noticia:['noticias','novidades_esportivas','comunicados'],evento:['agenda'],publicidade:['patrocinadores'],vantagem:['vantagens']};
+ const cmsFeedKey=r=>cmsSections[cmsAllowed[r.categoria]?.includes(r.secao)?r.secao:cmsAllowed[r.categoria]?.[0]];
+ const cmsFeeds=Object.fromEntries(Object.values(cmsSections).map(k=>[k,document.getElementById('cms-'+k)]));
+ function cmsSectionsVisible(){document.getElementById('cms-publicidade-section').hidden=cmsFeeds.publicidade.hidden;document.getElementById('cms-comunicados-section').hidden=cmsFeeds.comunicados.hidden;}
+ const cmsNum=(v,min,max)=>v!=null&&Number.isInteger(Number(v))&&Number(v)>=min&&Number(v)<=max?Number(v):null;
+ const cmsColor=v=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v)?v:null;
+ function cmsStyle(row,card,body,media){
+   const rad=cmsNum(row.arredondamento,0,40),space=cmsNum(row.espacamento,0,40),width=cmsNum(row.largura_imagem,10,100),height=cmsNum(row.altura_imagem,40,600);
+   if(rad!==null)card.style.borderRadius=rad+'px';
+   if(space!==null)body.style.padding=space+'px';
+   if(cmsColor(row.cor_fundo))card.style.backgroundColor=row.cor_fundo;
+   const align={esquerda:'left',centro:'center',direita:'right'}[row.alinhamento_texto];
+   if(align)body.style.textAlign=align;
+   const title=body.querySelector('h3'),ts=cmsNum(row.tamanho_titulo,12,36),ps=cmsNum(row.tamanho_texto,10,28);
+   if(ts!==null)title.style.fontSize=ts+'px';if(cmsColor(row.cor_titulo))title.style.color=row.cor_titulo;
+   for(const p of body.querySelectorAll('p,summary')){if(ps!==null)p.style.fontSize=ps+'px';if(cmsColor(row.cor_texto))p.style.color=row.cor_texto;}
+   if(media){
+     if(width!==null){media.style.width=width+'%';media.style.maxWidth='100%';}
+     if(height!==null){media.style.height=height+'px';media.style.maxHeight='none';}
+     if(['contain','cover'].includes(row.enquadramento))media.style.objectFit=row.enquadramento;
+     if(row.alinhamento_imagem==='esquerda'){media.style.marginLeft='0';media.style.marginRight='auto';}
+     else if(row.alinhamento_imagem==='direita'){media.style.marginLeft='auto';media.style.marginRight='0';}
+     else if(row.alinhamento_imagem==='centro'){media.style.marginLeft='auto';media.style.marginRight='auto';}
+     if(width!==null||height!==null)media.style.background='transparent';
+     if(row.posicao_imagem==='abaixo')card.append(media);
+   }
+ }
  const cmsNotice=document.getElementById('cmsNotice');
  function cmsEl(tag,cls,value){const el=document.createElement(tag);if(cls)el.className=cls;if(value!=null)el.textContent=String(value);return el;}
  function cmsRemove(item){if(item.media?.tagName==='VIDEO'){item.media.pause();item.media.removeAttribute('src');item.media.load();}item.card.remove();}
- function cmsClear(){++cmsSeq;for(const item of cmsCards.values())cmsRemove(item);cmsCards.clear();Object.values(cmsFeeds).forEach(el=>{el.replaceChildren();el.hidden=true;});document.getElementById('cms-publicidade-section').hidden=true;cmsNotice.hidden=true;cmsNotice.replaceChildren();cmsOwner=null;cmsAtivo=false;}
- function cmsFailure(){for(const item of cmsCards.values())cmsRemove(item);cmsCards.clear();Object.values(cmsFeeds).forEach(el=>{el.replaceChildren();el.hidden=true;});document.getElementById('cms-publicidade-section').hidden=true;const retry=cmsEl('button','','Tentar novamente');retry.type='button';retry.onclick=verificarAcesso;cmsNotice.replaceChildren(document.createTextNode('Não foi possível atualizar as publicações. '),retry);cmsNotice.hidden=false;}
+ function cmsClear(){++cmsSeq;for(const item of cmsCards.values())cmsRemove(item);cmsCards.clear();Object.values(cmsFeeds).forEach(el=>{el.replaceChildren();el.hidden=true;});cmsSectionsVisible();cmsNotice.hidden=true;cmsNotice.replaceChildren();cmsOwner=null;cmsAtivo=false;}
+ function cmsFailure(){for(const item of cmsCards.values())cmsRemove(item);cmsCards.clear();Object.values(cmsFeeds).forEach(el=>{el.replaceChildren();el.hidden=true;});cmsSectionsVisible();const retry=cmsEl('button','','Tentar novamente');retry.type='button';retry.onclick=verificarAcesso;cmsNotice.replaceChildren(document.createTextNode('Não foi possível atualizar as publicações. '),retry);cmsNotice.hidden=false;}
  function cmsStillValid(seq,uid){return seq===cmsSeq&&cmsOwner===uid&&membroAutorizado===uid&&!home.hidden;}
  async function cmsMedia(sb,item,uid){
    if(item.loading||!item.row.midia_caminho||!item.media||!item.card.isConnected||cmsOwner!==uid||membroAutorizado!==uid)return;
@@ -422,7 +451,7 @@
    if(row.categoria==='evento'&&row.data_evento){const d=new Date(row.data_evento);if(Number.isFinite(d.getTime()))body.append(cmsEl('time','cms-date',d.toLocaleString('pt-BR',{dateStyle:'full',timeStyle:'short',timeZone:'America/Sao_Paulo'})));}
    if(row.descricao)body.append(cmsEl('p','',row.descricao));
    if(row.texto){if(row.descricao){const details=cmsEl('details');details.append(cmsEl('summary','','Saiba mais'),cmsEl('p','',row.texto));body.append(details);}else body.append(cmsEl('p','',row.texto));}
-   card.append(body);return item;
+   card.append(body);cmsStyle(row,card,body,item.media);return item;
  }
  async function cmsLoad(sb,uid,ativo){
    if(cmsOwner!==uid||cmsAtivo!==ativo){cmsClear();cmsOwner=uid;cmsAtivo=ativo;}
@@ -430,16 +459,16 @@
    try{
      const categories=Object.keys(cmsCategorias).filter(k=>ativo||k!=='vantagem');
      const results=await Promise.all(categories.map(async categoria=>{
-       let q=sb.from('conteudos_app').select('id,categoria,titulo,descricao,texto,midia_caminho,midia_tipo,publico,situacao,destaque,data_evento,publicar_em,criado_em').eq('categoria',categoria).eq('situacao','publicado').lte('publicar_em',new Date().toISOString());
+       let q=sb.from('conteudos_app').select('id,categoria,titulo,descricao,texto,midia_caminho,midia_tipo,publico,situacao,destaque,data_evento,publicar_em,criado_em,secao,largura_imagem,altura_imagem,alinhamento_imagem,enquadramento,posicao_imagem,ordem,tamanho_titulo,tamanho_texto,cor_titulo,cor_texto,cor_fundo,alinhamento_texto,arredondamento,espacamento').eq('categoria',categoria).eq('situacao','publicado').lte('publicar_em',new Date().toISOString());
        if(!ativo)q=q.eq('publico','todos');
-       const {data,error}=await q.order('destaque',{ascending:false}).order('publicar_em',{ascending:false}).order('id',{ascending:true}).limit(20);
+       const {data,error}=await q.order('ordem',{ascending:true}).order('destaque',{ascending:false}).order('publicar_em',{ascending:false}).order('id',{ascending:true}).limit(20);
        if(error)throw error;return data||[];
      }));
      if(!cmsStillValid(seq,uid))return;
      const rows=results.flat();const next=new Set(rows.map(r=>r.id));
      for(const [key,item] of cmsCards){if(!next.has(key)){cmsRemove(item);cmsCards.delete(key);}}
      for(const cat of Object.keys(cmsFeeds)){
-       const feed=cmsFeeds[cat],list=rows.filter(r=>r.categoria===cat);
+       const feed=cmsFeeds[cat],list=rows.filter(r=>cmsFeedKey(r)===cat);
        let pos=feed.firstElementChild;
        for(const row of list){
          let item=cmsCards.get(row.id);
@@ -450,7 +479,7 @@
        }
        feed.hidden=!list.length;
      }
-     document.getElementById('cms-publicidade-section').hidden=cmsFeeds.publicidade.hidden;
+     cmsSectionsVisible();
      cmsNotice.hidden=true;cmsNotice.replaceChildren();
    }catch(e){if(cmsStillValid(seq,uid))cmsFailure();}
  }
@@ -511,7 +540,39 @@
    }catch(e){if(id===verificacao)fecharHome(e.message||'Não foi possível validar o acesso.');}
    finally{verificando=false;}
  }
- if(inicioDireto){
+ const visualPreview=window.parent!==window && new URLSearchParams(location.search).get('editor_visual')==='1';
+ if(visualPreview){
+   video.pause();intro.hidden=true;
+   const previewStatus=cmsEl('div','','Validando prévia administrativa…');
+   previewStatus.style.cssText='position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;background:#f4f7fb;z-index:100';
+   document.getElementById('app').append(previewStatus);
+   let previewAllowed=false, lastSection=null, draftItem=null;
+   const deny=()=>{previewAllowed=false;home.hidden=true;bottomNav.hidden=true;previewStatus.hidden=false;previewStatus.textContent='Prévia indisponível. Entre na administração novamente.';};
+   // Os controles normais do app não executam ações dentro da prévia.
+   document.addEventListener('click',e=>{if(e.target.closest('a,button')){e.preventDefault();e.stopImmediatePropagation();}},true);
+   window.addEventListener('message',e=>{
+     if(!previewAllowed||e.origin!==location.origin||e.source!==window.parent||e.data?.type!=='colonial:visual-draft')return;
+     const row=e.data.row;if(!row||!cmsAllowed[row.categoria])return;
+     if(draftItem)cmsRemove(draftItem);
+     const key=cmsFeedKey(row),feed=cmsFeeds[key];
+     Object.values(cmsFeeds).forEach(f=>{f.replaceChildren();f.hidden=true;});
+     aplicarPerfil(row.publico==='associados'?'associado':'usuario',row.publico==='associados'?'ativo':'ativo');
+     draftItem=cmsBuild(row,null,null);
+     const media=e.data.media;
+     if(draftItem.media&&typeof media==='string'&&(/^(https:|blob:)/).test(media)){draftItem.media.src=media;draftItem.media.hidden=false;}
+     feed.append(draftItem.card);feed.hidden=false;cmsSectionsVisible();
+     if(key!==lastSection||e.data.focus===true){lastSection=key;feed.closest('section').scrollIntoView({block:'start',behavior:'auto'});}
+   });
+   (async()=>{try{
+     const sb=window.colonial?.client;if(!sb)throw Error('Sem conexão');
+     const {data,error}=await sb.auth.getUser();if(error||!data?.user)throw Error('Sem sessão');
+     const p=await sb.rpc('conteudo_admin');if(p.error||p.data!==true)throw Error('Sem autorização');
+     const adminId=data.user.id;previewAllowed=true;previewStatus.hidden=true;
+     document.getElementById('homeWelcome').textContent='PRÉVIA ADMINISTRATIVA';enterHome();
+     sb.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'||(session&&session.user.id!==adminId))deny();});
+     window.parent.postMessage({type:'colonial:visual-ready'},location.origin);
+   }catch(e){deny();window.parent.postMessage({type:'colonial:visual-error'},location.origin);}})();
+ }else if(inicioDireto){
    video.pause();showCrest();
    const sb=window.colonial?.client;
    if(sb){
