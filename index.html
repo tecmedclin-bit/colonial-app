@@ -137,6 +137,21 @@
 <script>
 (()=>{
  const video=document.getElementById('openingVideo'); const intro=document.getElementById('intro'); const reveal=document.getElementById('reveal'); const flash=document.getElementById('flash'); const home=document.getElementById('home'); const bottomNav=document.getElementById('bottomNav'); const controls=document.getElementById('videoControls'); const startOverlay=document.getElementById('startOverlay'); const soundBtn=document.getElementById('soundBtn'); let showing=false;
+ // Abertura do convite: reutiliza o vídeo e o brasão originais dentro da ativação.
+ const conviteAbertura=window.parent!==window && new URLSearchParams(location.search).get('abertura')==='convite';
+ if(conviteAbertura){
+   const grupo=reveal.querySelector('.access-group');
+   const criar=grupo.querySelector('a.home-cta');
+   criar.removeAttribute('href');
+   const icone=criar.querySelector('svg');
+   criar.replaceChildren(icone,document.createTextNode('CRIAR LOGIN E SENHA'));
+   criar.setAttribute('role','button');criar.tabIndex=0;
+   const continuar=()=>window.parent.postMessage({type:'colonial:ativar-conta'},location.origin);
+   criar.addEventListener('click',continuar);
+   criar.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();continuar();}});
+   grupo.querySelector('#homeBtn').hidden=true;
+   grupo.querySelector('.admin-access').hidden=true;
+ }
  function showCrest(){if(showing)return; showing=true;controls.hidden=true;startOverlay.classList.remove('visible');flash.classList.remove('go');void flash.offsetWidth;flash.classList.add('go');reveal.classList.add('visible');reveal.setAttribute('aria-hidden','false');video.pause();}
  function enterHome(){video.pause();intro.hidden=true;home.hidden=false;bottomNav.hidden=false;home.scrollTop=0;document.getElementById('navStart').setAttribute('aria-current','page');}
  function replay(){home.hidden=true;bottomNav.hidden=true;intro.hidden=false;showing=false;controls.hidden=false;flash.classList.remove('go');reveal.classList.remove('visible');reveal.setAttribute('aria-hidden','true');video.currentTime=0;const playPromise=video.play();if(playPromise&&typeof playPromise.catch==='function')playPromise.catch(()=>startOverlay.classList.add('visible'));}
@@ -170,7 +185,7 @@
  soundBtn.addEventListener('click',()=>{video.muted=!video.muted;soundBtn.textContent=video.muted?'Som: off':'Som: on';soundBtn.setAttribute('aria-label',video.muted?'Ativar som':'Desativar som')});
  document.getElementById('homeBtn').addEventListener('click',enterHome);
  document.getElementById('replayHome').addEventListener('click',replay);
- if(new URLSearchParams(location.search).get('inicio')==='1'){enterHome();}else{const autoplay=video.play();if(autoplay&&typeof autoplay.catch==='function')autoplay.catch(()=>startOverlay.classList.add('visible'));}
+ if(!conviteAbertura && new URLSearchParams(location.search).get('inicio')==='1'){enterHome();}else{const autoplay=video.play();if(autoplay&&typeof autoplay.catch==='function')autoplay.catch(()=>startOverlay.classList.add('visible'));}
  const overlay=document.getElementById('dialogOverlay');const title=document.getElementById('dialogTitle');const text=document.getElementById('dialogText');const links=document.getElementById('dialogLinks');
  function openPanel(name,message,items=[]){title.textContent=name;text.textContent=message;links.replaceChildren();for(const item of items){const a=document.createElement('a');a.textContent=item.label;a.href=item.href;if(item.external){a.target='_blank';a.rel='noopener noreferrer';}links.append(a);}links.hidden=!items.length;overlay.classList.add('open');document.getElementById('closeDialog').focus();}
  function dialog(name){openPanel(name,'O módulo de reservas está em preparação. Nenhuma reserva será realizada nesta etapa.',[{label:'Acessar área do associado',href:'associados.html'}]);}
@@ -182,7 +197,7 @@
  document.querySelectorAll('[data-demo]').forEach(el=>el.addEventListener('click',()=>dialog(el.getAttribute('data-demo'))));document.getElementById('closeDialog').addEventListener('click',()=>overlay.classList.remove('open'));overlay.addEventListener('click',(e)=>{if(e.target===overlay)overlay.classList.remove('open')});document.addEventListener('keydown',e=>{if(e.key==='Escape')overlay.classList.remove('open')});
  let greetingRequest=0;
  async function welcomeMember(){const request=++greetingRequest;const sb=window.colonial?.client;const el=document.getElementById('homeWelcome');if(!sb||!el)return;el.textContent='SEJA BEM-VINDO';try{const {data:{session}}=await sb.auth.getSession();if(!session)return;const {data:{user},error}=await sb.auth.getUser();if(error||!user)return;const {data:person,error:memberError}=await sb.from('associados').select('nome').eq('usuario_auth_id',user.id).maybeSingle();if(request!==greetingRequest||memberError||!person?.nome)return;const first=person.nome.trim().split(/\s+/)[0].toLocaleLowerCase('pt-BR');if(first)el.textContent='Seja bem-vindo, '+first.charAt(0).toLocaleUpperCase('pt-BR')+first.slice(1)+'!';}catch(_){}}
- welcomeMember();window.addEventListener('pageshow',welcomeMember);
+ if(!conviteAbertura){welcomeMember();window.addEventListener('pageshow',welcomeMember);}
  document.getElementById('navStart').addEventListener('click',()=>home.scrollTo({top:0,behavior:'smooth'}));document.getElementById('navAssoc').addEventListener('click',()=>location.assign('associados.html'));document.getElementById('navBookings').addEventListener('click',()=>dialog('Reserva de espaços'));document.getElementById('navMore').addEventListener('click',menuPanel);
 })();
 </script>
