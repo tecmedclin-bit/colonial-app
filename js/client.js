@@ -5,7 +5,12 @@ window.colonial = (() => {
   let client = null;
   if (ready && window.supabase) {
     client = window.supabase.createClient(config.supabaseUrl, config.supabasePublishableKey, {
-      auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true }
+      auth: {
+  autoRefreshToken: true,
+  persistSession: true,
+  detectSessionInUrl: true,
+  experimental: { passkey: true }
+}
     });
   }
   function status(id, message, type = '') {
