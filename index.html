@@ -113,9 +113,11 @@
         <h2><span style="display:block;font-size:12px;letter-spacing:2px;color:#bcd5f1;margin-bottom:9px">BEM-VINDO!</span>O Colonial agora na palma da sua mão.</h2>
       </div>
       <div class="access-group">
-        <a class="home-cta" href="associados.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>ENTRAR COMO ASSOCIADO</a>
-        <a id="signupBtn" class="home-cta signup-cta" href="torne-se-associado.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m4-15v6m-3-3h6"/></svg>CADASTRE-SE</a>
+        <a class="home-cta" href="cadastro-app.html?modo=login"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>ENTRAR</a>
+        <a id="signupBtn" class="home-cta signup-cta" href="cadastro-app.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m4-15v6m-3-3h6"/></svg>CRIAR CONTA</a>
+        <a id="joinAccess" class="admin-access" style="padding-top:5px;padding-bottom:0;font-size:13px" href="torne-se-associado.html">Torne-se um associado</a>
         <a class="admin-access" href="administracao.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Acesso administrativo</a>
+        <p id="accessNotice" role="status" hidden style="margin:2px 0;color:#f6d9b7;font-size:12px;text-align:center;line-height:1.4"></p>
       </div>
     </div>
   </section>
@@ -133,13 +135,13 @@
     <section class="home-section" id="atalhos"><div class="section-top"><h2>Explore o Colonial</h2><span>Seu clube no celular</span></div>
       <div class="quick-grid">
         <button class="quick-card feature" type="button" id="joinCard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m4-15v6m-3-3h6"/></svg><strong>Torne-se associado</strong><small>Saiba como fazer parte do clube</small></button>
-        <a class="quick-card" href="associados.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M5 17c.5-2 5.5-2 6 0m3-7h5m-5 4h5"/></svg><strong>Carteirinha</strong><small>Acesse com CPF e senha</small></a>
-        <button class="quick-card" type="button" data-demo="Reserva de espaços"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18m-13 5 2.5 2.5L16 14"/></svg><strong>Reservas</strong><small>Campo, piscina e ginásio — em desenvolvimento</small></button>
+        <a class="quick-card" id="memberCardLink" href="associados.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M5 17c.5-2 5.5-2 6 0m3-7h5m-5 4h5"/></svg><strong>Carteirinha</strong><small>Acesse com CPF e senha</small></a>
+        <button class="quick-card" id="bookingsCard" type="button" data-demo="Reserva de espaços"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18m-13 5 2.5 2.5L16 14"/></svg><strong>Reservas</strong><small>Campo, piscina e ginásio — em desenvolvimento</small></button>
         <button class="quick-card" type="button" id="projectsCard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M3 12h18m-9-9c-5 5-5 13 0 18m0-18c5 5 5 13 0 18"/></svg><strong>Projetos sociais</strong><small>Conheça as iniciativas do clube</small></button>
       </div>
     </section>
     <section class="home-section"><div class="section-top"><h2>Fale com o clube</h2></div><div class="social-card"><div><b>Colonial Esporte Clube</b><p>Saiba mais sobre atividades, associação e utilização dos espaços.</p></div><a href="https://wa.me/5521986361883" target="_blank" rel="noopener">WhatsApp ↗</a></div></section>
-    <p class="disclaimer">Área do associado e carteirinha digital disponíveis. O módulo de reservas está em preparação.</p>
+    <p class="disclaimer" id="homeDisclaimer">Área do associado e carteirinha digital disponíveis. O módulo de reservas está em preparação.</p>
   </main>
   <nav class="nav" id="bottomNav" hidden aria-label="Navegação principal">
     <button type="button" aria-current="page" id="navStart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m3 11 9-8 9 8v10H3z"/><path d="M9 21v-7h6v7"/></svg>Início</button>
@@ -147,7 +149,7 @@
     <button type="button" id="navBookings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18"/></svg>Reservas</button>
     <button type="button" id="navMore"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Mais</button>
   </nav>
-  <div class="dialog-overlay" id="dialogOverlay" role="presentation"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><h3 id="dialogTitle">Em desenvolvimento</h3><p id="dialogText">Esta função será ativada na versão definitiva do aplicativo.</p><div id="dialogLinks" class="dialog-links" hidden></div><button type="button" id="closeDialog">Entendi</button></div></div>
+  <div class="dialog-overlay" id="dialogOverlay" role="presentation"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><h3 id="dialogTitle">Em desenvolvimento</h3><p id="dialogText">Esta função será ativada na versão definitiva do aplicativo.</p><div id="dialogLinks" class="dialog-links" hidden></div><button type="button" id="logoutHome" hidden style="display:block;width:100%;background:#e9eff7;color:#153b6b">Sair da conta</button><button type="button" id="closeDialog">Entendi</button></div></div>
 </div>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -169,7 +171,7 @@
    criar.addEventListener('click',continuar);
    criar.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();continuar();}});
    grupo.querySelector('#signupBtn').hidden=true;
-   grupo.querySelector('.admin-access').hidden=true;
+   grupo.querySelectorAll('.admin-access').forEach(a=>a.hidden=true);
  }
  function showCrest(){if(showing)return; showing=true;controls.hidden=true;startOverlay.classList.remove('visible');flash.classList.remove('go');void flash.offsetWidth;flash.classList.add('go');reveal.classList.add('visible');reveal.setAttribute('aria-hidden','false');video.pause();}
  function enterHome(){video.pause();intro.hidden=true;home.hidden=false;bottomNav.hidden=false;home.scrollTop=0;document.getElementById('navStart').setAttribute('aria-current','page');}
@@ -204,41 +206,80 @@
  soundBtn.addEventListener('click',()=>{video.muted=!video.muted;soundBtn.textContent=video.muted?'Som: off':'Som: on';soundBtn.setAttribute('aria-label',video.muted?'Ativar som':'Desativar som')});
  document.getElementById('replayHome').addEventListener('click',replay);
  const overlay=document.getElementById('dialogOverlay');const title=document.getElementById('dialogTitle');const text=document.getElementById('dialogText');const links=document.getElementById('dialogLinks');
- function openPanel(name,message,items=[]){title.textContent=name;text.textContent=message;links.replaceChildren();for(const item of items){const a=document.createElement('a');a.textContent=item.label;a.href=item.href;if(item.external){a.target='_blank';a.rel='noopener noreferrer';}links.append(a);}links.hidden=!items.length;overlay.classList.add('open');document.getElementById('closeDialog').focus();}
+ function openPanel(name,message,items=[]){document.getElementById('logoutHome').hidden=true;title.textContent=name;text.textContent=message;links.replaceChildren();for(const item of items){const a=document.createElement('a');a.textContent=item.label;a.href=item.href;if(item.external){a.target='_blank';a.rel='noopener noreferrer';}links.append(a);}links.hidden=!items.length;overlay.classList.add('open');document.getElementById('closeDialog').focus();}
  function dialog(name){openPanel(name,'O módulo de reservas está em preparação. Nenhuma reserva será realizada nesta etapa.',[{label:'Acessar área do associado',href:'associados.html'}]);}
  function joinPanel(){openPanel('Torne-se associado','Quer fazer parte do Colonial? Entre em contato com o clube para conhecer as condições de associação e solicitar seu cadastro.',[{label:'Falar com o clube pelo WhatsApp',href:'https://wa.me/5521986361883?text=Ol%C3%A1%2C%20quero%20saber%20como%20me%20tornar%20associado%20do%20Colonial%20Esporte%20Clube.',external:true},{label:'Já sou associado — entrar',href:'associados.html'}]);}
  function projectsPanel(){openPanel('Projetos sociais','Conheça as iniciativas de esporte e convivência do Colonial Esporte Clube em Papucaia.',[{label:'Conhecer projetos no site oficial',href:'https://colonialesporteclube.com.br/',external:true}]);}
- function menuPanel(){openPanel('Menu do aplicativo','Escolha o acesso desejado.',[{label:'Área do associado / Carteirinha',href:'associados.html'},{label:'Acesso administrativo',href:'administracao.html'},{label:'Site oficial do clube',href:'https://colonialesporteclube.com.br/',external:true}]);}
+ function menuPanel(){
+   const items=[tipoAcesso==='associado'?{label:'Área do associado / Carteirinha',href:'associados.html'}:{label:'Torne-se associado',href:'torne-se-associado.html'},{label:'Acesso administrativo',href:'administracao.html'},{label:'Site oficial do clube',href:'https://colonialesporteclube.com.br/',external:true}];
+   openPanel('Menu do aplicativo','Escolha o acesso desejado.',items);
+   document.getElementById('logoutHome').hidden=false;
+ }
+ document.getElementById('logoutHome').addEventListener('click',async()=>{
+   const btn=document.getElementById('logoutHome');btn.disabled=true;
+   try{const {error}=await window.colonial.client.auth.signOut();if(error)throw error;location.replace('./');}
+   catch(_){text.textContent='Não foi possível encerrar a sessão. Tente novamente.';}
+   finally{btn.disabled=false;}
+ });
  document.getElementById('joinCard').addEventListener('click',joinPanel);
  document.getElementById('projectsCard').addEventListener('click',projectsPanel);
  document.querySelectorAll('[data-demo]').forEach(el=>el.addEventListener('click',()=>dialog(el.getAttribute('data-demo'))));document.getElementById('closeDialog').addEventListener('click',()=>overlay.classList.remove('open'));overlay.addEventListener('click',(e)=>{if(e.target===overlay)overlay.classList.remove('open')});document.addEventListener('keydown',e=>{if(e.key==='Escape')overlay.classList.remove('open')});
- // O conteúdo interno só abre após confirmar uma sessão vinculada ao associado.
+ // Acesso ao app: sessão válida e cadastro autorizado, associado ou usuário comum.
  const inicioDireto=!conviteAbertura && new URLSearchParams(location.search).get('inicio')==='1';
- let verificacao=0, membroAutorizado=null;
- function fecharHome(){
+ let verificacao=0, membroAutorizado=null, tipoAcesso=null, verificando=false;
+ const accessNotice=document.getElementById('accessNotice');
+ function fecharHome(mensagem=''){
    home.hidden=true;bottomNav.hidden=true;intro.hidden=false;
-   overlay.classList.remove('open');membroAutorizado=null;showCrest();
+   overlay.classList.remove('open');membroAutorizado=null;tipoAcesso=null;
+   accessNotice.textContent=mensagem;accessNotice.hidden=!mensagem;showCrest();
+ }
+ function aplicarPerfil(tipo, situacao){
+   tipoAcesso=tipo;
+   const associado=tipo==='associado';
+   const ativo=associado&&situacao==='ativo';
+   document.getElementById('memberCardLink').hidden=!ativo;
+   document.getElementById('bookingsCard').hidden=!ativo;
+   document.getElementById('navBookings').hidden=!ativo;
+   const navAssoc=document.getElementById('navAssoc');
+   navAssoc.lastChild.textContent=associado?'Associado':'Associar';
+   document.getElementById('joinCard').hidden=associado;
+   document.getElementById('homeDisclaimer').textContent=ativo?'Área do associado e carteirinha digital disponíveis. O módulo de reservas está em preparação.':associado?'A carteirinha digital depende da liberação da associação.':'Acompanhe o Colonial e conheça as atividades do clube.';
  }
  async function verificarAcesso(){
+   if(verificando)return;
+   verificando=true;
    const id=++verificacao;
-   home.hidden=true;bottomNav.hidden=true;membroAutorizado=null;
    const sb=window.colonial?.client;
    try{
-     if(!sb)throw Error('Sem conexão');
+     if(!sb)throw Error('Conexão indisponível. Tente novamente.');
      const {data:{session},error:sessionError}=await sb.auth.getSession();
-     if(sessionError||!session)throw Error('Sem sessão');
+     if(sessionError||!session)throw Error('Entre com sua conta para continuar.');
      const {data:{user},error}=await sb.auth.getUser();
-     if(error||!user||user.id!==session.user.id)throw Error('Sessão inválida');
-     const {data:person,error:memberError}=await sb.from('associados').select('nome').eq('usuario_auth_id',user.id).maybeSingle();
-     if(memberError||!person)throw Error('Cadastro não localizado');
-     const {data:{session:atual}}=await sb.auth.getSession();
-     if(!atual||atual.user.id!==user.id)throw Error('Sessão alterada');
+     if(error||!user||user.id!==session.user.id)throw Error('Sessão inválida. Entre novamente.');
+     const {data:person,error:memberError}=await sb.from('associados').select('nome,situacao').eq('usuario_auth_id',user.id).maybeSingle();
+     if(memberError)throw Error('Não foi possível consultar seu acesso. Tente novamente.');
+     let perfil=person,tipo='associado';
+     if(person){
+       if(!['ativo','pendente'].includes(person.situacao))throw Error('Seu acesso está indisponível. Procure a administração.');
+     }else{
+       tipo='usuario';
+       const {data:comum,error:comumError}=await sb.from('usuarios_app').select('nome,situacao').eq('usuario_id',user.id).maybeSingle();
+       if(comumError)throw Error('Não foi possível consultar seu acesso. Tente novamente.');
+       if(!comum)throw Error('Conclua seu cadastro para acessar o aplicativo.');
+       if(comum.situacao!=='ativo')throw Error('Seu acesso está indisponível. Procure a administração.');
+       perfil=comum;
+     }
+     const {data:{session:atual},error:atualError}=await sb.auth.getSession();
+     if(atualError||!atual||atual.user.id!==user.id)throw Error('Sessão alterada. Entre novamente.');
      if(id!==verificacao)return;
+     aplicarPerfil(tipo,perfil.situacao);
      membroAutorizado=user.id;
-     const first=String(person.nome||'').trim().split(/\s+/)[0].toLocaleLowerCase('pt-BR');
+     const first=String(perfil.nome||'').trim().split(/\s+/)[0].toLocaleLowerCase('pt-BR');
      document.getElementById('homeWelcome').textContent=first?'Seja bem-vindo, '+first.charAt(0).toLocaleUpperCase('pt-BR')+first.slice(1)+'!':'SEJA BEM-VINDO';
-     enterHome();
-   }catch(_){if(id===verificacao)fecharHome();}
+     accessNotice.hidden=true;
+     if(home.hidden)enterHome();
+   }catch(e){if(id===verificacao)fecharHome(e.message||'Não foi possível validar o acesso.');}
+   finally{verificando=false;}
  }
  if(inicioDireto){
    video.pause();showCrest();
@@ -252,10 +293,12 @@
    }
    verificarAcesso();
    window.addEventListener('pageshow',e=>{if(e.persisted)verificarAcesso();});
+   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!home.hidden)verificarAcesso();});
+   setInterval(()=>{if(!document.hidden&&!home.hidden)verificarAcesso();},60000);
  }else{
    const autoplay=video.play();if(autoplay&&typeof autoplay.catch==='function')autoplay.catch(()=>startOverlay.classList.add('visible'));
  }
- document.getElementById('navStart').addEventListener('click',()=>home.scrollTo({top:0,behavior:'smooth'}));document.getElementById('navAssoc').addEventListener('click',()=>location.assign('associados.html'));document.getElementById('navBookings').addEventListener('click',()=>dialog('Reserva de espaços'));document.getElementById('navMore').addEventListener('click',menuPanel);
+ document.getElementById('navStart').addEventListener('click',()=>home.scrollTo({top:0,behavior:'smooth'}));document.getElementById('navAssoc').addEventListener('click',()=>location.assign(tipoAcesso==='associado'?'associados.html':'torne-se-associado.html'));document.getElementById('navBookings').addEventListener('click',()=>dialog('Reserva de espaços'));document.getElementById('navMore').addEventListener('click',menuPanel);
 })();
 </script>
 </body>
