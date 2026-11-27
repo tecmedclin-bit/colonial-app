@@ -393,7 +393,225 @@ if (!photoError && photo?.signedUrl) {
     else{const a=document.createElement('a');a.href=url.href;a.textContent='Validar carteirinha';qr.append(a);}
     app.status('cardStatusMessage','Sua carteirinha é pessoal. A validação depende de conexão com a internet.');
   }
+    // Preferencia de acesso biometrico neste navegador
+  const bioKey = 'colonial-bio-preferencia-v2';
+  const btn = document.getElementById('loginBtn');
+  const logout = document.getElementById('logoutBtn');
+  const bioDisponivel = Boolean(sb && window.isSecureContext &&
+    window.PublicKeyCredential &&
+    typeof sb.auth.registerPasskey === 'function' &&
+    typeof sb.auth.signInWithPasskey === 'function');
+
+  function bioPreferida() {
+    try { return localStorage.getItem(bioKey); }
+    catch (_) { return null; }
+  }
+
+  function bioSalvar(uid) {
+    try { localStorage.setItem(bioKey, uid); return true; }
+    catch (_) { return false; }
+  }
+
+  function oferecerBio(uid) {
+    if (!bioDisponivel || !uid || !activeMember ||
+        bioPreferida() === uid ||
+        !window.HTMLDialogElement ||
+        !HTMLDialogElement.prototype.showModal) return;
+
+    const d = document.createElement('dialog');
+
+    d.style.cssText = 'width:calc(100% - 40px);max-width:350px;padding:25px;border:0;border-radius:20px;box-shadow:0 0 0 100vmax #03152baa;text-align:center;color:#10365e;';
+
+    d.setAttribute('aria-labelledby', 'bioTitulo');
+
+    d.innerHTML = `<svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2 12a10 10 0 0 1 18-6M22 12a10 10 0 0 0-1-4M6 12a6 6 0 0 1 12 0c0 4-1 7-2 9M10 12a2 2 0 0 1 4 0c0 5-1 8-3 10M2 16c0 2-.2 3-1 4M6 16c0 2-.5 4-1.5 6M10 16c-.1 2-.5 4-1.5 6M22 16l-1 4"/></svg>
+    <h2 id="bioTitulo">Ativar biometria?</h2>
+    <p>Nos próximos acessos, confirme sua identidade pelo celular. Use somente em seu aparelho pessoal.</p>
+    <button type="button" class="btn full" id="bioSim">ATIVAR BIOMETRIA</button>
+    <button type="button" class="btn full light" id="bioNao" style="margin-top:10px">AGORA NÃO</button>
+    <p id="bioMsg" class="status" role="status"></p>`;
+
+    const sim = d.querySelector('#bioSim');
+    const nao = d.querySelector('#bioNao');
+    const msg = d.querySelector('#bioMsg');
+
+    d.addEventListener('close', () => d.remove());
+
+    d.addEventListener('cancel', e => {
+      if (sim.disabled) e.preventDefault();
+    });
+
+    nao.onclick = () => d.close();
+
+    sim.onclick = async () => {
+      sim.disabled = nao.disabled = logout.disabled = true;
+      msg.textContent = 'Confirme no seu aparelho...';
+
+      try {
+        const {data:auth,error:authError} =
+          await sb.auth.getUser();
+
+        if (authError || auth?.user?.id !== uid)
+          throw new Error('Sessão alterada');
+
+        const {error} = await sb.auth.registerPasskey();
+
+        if (error) throw error;
+
+        if (bioSalvar(uid)) {
+          d.close();
+          app.status('cardStatusMessage',
+            'Acesso biométrico ativado neste navegador.');
+        } else {
+          msg.textContent =
+            'Chave cadastrada, mas o navegador não permitiu salvar a preferência.';
+        }
+
+      } catch (_) {
+        msg.textContent =
+          'Não foi possível ativar. Tente novamente ou escolha Agora não.';
+      } finally {
+        sim.disabled = nao.disabled = logout.disabled = false;
+      }
+    };
+
+    document.body.append(d);
+
+    try { d.showModal(); }
+    catch (_) { d.remove(); }
+  }
+
+  async function entrarBio() {
+    btn.disabled = true;
+    form.hidden = true;
+
+    app.status('loginStatus',
+      'Confirme sua identidade no aparelho...');
+
+    const controle = new AbortController();
+    const limite = setTimeout(() => controle.abort(), 45000);
+
+    try {
+      const {data,error} = await sb.auth.signInWithPasskey({
+        options: {signal: controle.signal}
+      });
+
+      if (error || !data?.session)
+        throw error || new Error('Sessão inválida');
+
+      await showMember();
+
+      if (!activeMember)
+        throw new Error('Cadastro não localizado');
+
+      bioSalvar(data.session.user.id);
+      app.status('loginStatus','');
+
+    } catch (_) {
+      activeMember = null;
+      memberPanel.hidden = true;
+      card.hidden = true;
+      loginPanel.hidden = false;
+
+      app.status('loginStatus',
+        'Utilize seu CPF e senha para continuar.');
+
+    } finally {
+      clearTimeout(limite);
+      form.hidden = false;
+      btn.disabled = false;
+    }
+  }
+
   form.addEventListener('submit',async(event)=>{
+    event.preventDefault();
+
+    if(btn.disabled || !app.requireConfig('loginStatus'))return;
+
+    const cpf=app.formatCpf(document.getElementById('cpf').value);
+    const senha=document.getElementById('senha').value;
+
+    if(cpf.length!==11){
+      app.status('loginStatus','Informe um CPF válido.','error');
+      return;
+    }
+
+    btn.disabled=true;
+    app.status('loginStatus','Verificando seu acesso…');
+
+    try {
+      const {data,error}=await sb.functions.invoke(
+        'login-cpf',{body:{cpf,senha}}
+      );
+
+      if(error)throw new Error(await app.functionError(error));
+
+      if(!data?.access_token||!data?.refresh_token)
+        throw new Error('Resposta de login inválida.');
+
+      const {data:auth,error:sessionError}=
+        await sb.auth.setSession({
+          access_token:data.access_token,
+          refresh_token:data.refresh_token
+        });
+
+      if(sessionError)throw sessionError;
+
+      document.getElementById('senha').value='';
+      activeMember=null;
+
+      await showMember();
+
+      if(activeMember) {
+        app.status('loginStatus','');
+        oferecerBio(auth?.session?.user?.id);
+      }
+
+    }catch(error){
+      app.status('loginStatus',app.errMessage(error),'error');
+    }
+    finally{btn.disabled=false;}
+  });
+
+  logout.addEventListener('click',async()=>{
+    if(sb){
+      const {error}=await sb.auth.signOut();
+
+      if(error){
+        app.status('cardStatusMessage',
+          'Não foi possível sair. Tente novamente.','error');
+        return;
+      }
+    }
+
+    memberPanel.hidden=true;
+    loginPanel.hidden=false;
+    card.hidden=true;
+    activeMember=null;
+
+    if(localPhotoPreview){
+      URL.revokeObjectURL(localPhotoPreview);
+      localPhotoPreview=null;
+    }
+  });
+
+  if(sb){
+    btn.disabled=true;
+
+    try {
+      const {data:{session}}=await sb.auth.getSession();
+
+      if(bioDisponivel && bioPreferida() &&
+        (!session || session.user.id===bioPreferida())) {
+        await entrarBio();
+      } else if(session) {
+        await showMember();
+      }
+    } finally {
+      btn.disabled=false;
+    }
+  }
+})();
     event.preventDefault();if(!app.requireConfig('loginStatus'))return;
     const btn=document.getElementById('loginBtn');
     const cpf=app.formatCpf(document.getElementById('cpf').value),senha=document.getElementById('senha').value;
