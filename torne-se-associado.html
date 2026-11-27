@@ -8,6 +8,13 @@
 <link rel="stylesheet" href="css/portal.css">
 <style>
 .shell{width:min(100%,660px)}.top h1{font-size:clamp(28px,6vw,38px);margin-top:24px}.inner{padding:20px 16px}.panel{padding:20px 18px}.section-head{display:flex;align-items:center;gap:10px;margin:0 0 5px}.section-no{display:grid;place-items:center;width:28px;height:28px;background:#e8f1fc;color:#10519b;border-radius:9px;font-size:12px;font-weight:800}.section-head h2{font-size:17px;margin:0}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.grid2>*{min-width:0}.label{line-height:1.4}.optional{color:#71869c;font-weight:400}.panel input:not([type=checkbox]),.panel select{width:100%;min-width:0;min-height:46px;border:1px solid #d8e3ee;border-radius:10px;padding:10px 12px;background:#f9fbfd;color:#183353;font:inherit;font-size:15px}.cep-row{display:flex;gap:8px;align-items:stretch}.cep-row input{flex:1;min-width:0}.cep-row button{flex:none}.checkline{display:flex;align-items:flex-start;gap:10px;font-size:13px;line-height:1.6;color:#183353;margin:12px 0}.checkline input{width:19px;height:19px;flex:none;margin-top:2px;accent-color:#09509b}.submit-panel .btn.full{margin-top:10px}.panel p{margin:6px 0 12px}.foot-link{text-align:center;margin:18px 0}.foot-link a{font-weight:700}.status{overflow-wrap:anywhere}.top .back{white-space:nowrap}@media(max-width:340px){.grid2{grid-template-columns:1fr}.cep-row{flex-wrap:wrap}.cep-row button{width:100%}}
+
+[hidden]{display:none!important}
+.wizard-progress{margin:14px 0 16px;padding:12px 14px;background:#fff;border:1px solid #d8e3ee;border-radius:12px;scroll-margin-top:12px}
+.wizard-line{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:#52708d;margin-bottom:9px}.wizard-line strong{color:#103b70}
+.wizard-progress progress{display:block;width:100%;height:7px;border:0;border-radius:99px;overflow:hidden;background:#e4edf7;accent-color:#164e91}.wizard-progress progress::-webkit-progress-bar{background:#e4edf7;border-radius:99px}.wizard-progress progress::-webkit-progress-value{background:#164e91;border-radius:99px}.wizard-progress progress::-moz-progress-bar{background:#164e91;border-radius:99px}
+.wizard-nav{display:flex;gap:10px;justify-content:space-between;margin:10px 0 20px}.wizard-nav .btn{flex:1;min-height:44px;font-size:12px}.wizard-first{justify-content:flex-end}.wizard-first .btn{flex:0 1 190px}
+.section-head h2:focus{outline:none}.top h1{font-size:clamp(24px,5.4vw,32px);margin-top:17px}.top p{font-size:13px;line-height:1.5}#previewNotice{font-size:12px}
 </style>
 </head>
 <body><main class="shell">
@@ -41,7 +48,6 @@ $('cep').addEventListener('input',e=>{e.target.value=digits(e.target.value).slic
 $('telefone').addEventListener('input',e=>{const v=digits(e.target.value).slice(0,11);e.target.value=v.length<=2?v:'('+v.slice(0,2)+') '+v.slice(2,v.length>10?7:6)+(v.length>(v.length>10?7:6)?'-'+v.slice(v.length>10?7:6):'');});
 const now=new Date();$('data_nascimento').max=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
 $('cepBtn').addEventListener('click',async()=>{const cep=digits($('cep').value);const status=$('cepStatus');if(cep.length!==8){status.textContent='Informe um CEP com oito números.';return;}const button=$('cepBtn');button.disabled=true;status.textContent='Consultando CEP…';try{const res=await fetch('https://viacep.com.br/ws/'+cep+'/json/');if(!res.ok)throw Error();const data=await res.json();if(digits($('cep').value)!==cep)return;if(data.erro)throw Error();for(const [id,value] of Object.entries({endereco:data.logradouro,bairro:data.bairro,cidade:data.localidade,estado:data.uf})){if(value)$(id).value=value;}status.textContent='Confira o endereço e informe o número.';}catch(_){status.textContent='CEP não localizado ou serviço indisponível. Preencha o endereço manualmente.';}finally{button.disabled=false;}});
-
 const form = $('joinForm');
 const sendBtn = $('sendBtn');
 const sendStatus = $('sendStatus');
@@ -54,195 +60,163 @@ let concluido = false;
 const captcha = document.createElement('div');
 captcha.id = 'colonial-turnstile';
 captcha.style.margin = '16px 0';
-
 sendBtn.before(captcha);
 
-$('previewNotice').textContent =
-  'Preencha os dados para solicitar sua associação ao Colonial Esporte Clube.';
+$('previewNotice').textContent = 'Preencha os dados para solicitar sua associação ao Colonial Esporte Clube.';
 
 function atualizarBotao() {
-  sendBtn.disabled =
-    !turnstileToken || enviando || concluido;
+  sendBtn.disabled = !turnstileToken || enviando || concluido;
 }
+
+const etapas = [...form.querySelectorAll(':scope > section.panel')];
+let etapa = 0;
+let turnstileReady = false;
+const nomes = ['Dados pessoais', 'Endereço', 'Contato', 'Confirmação'];
+const progresso = document.createElement('div');
+progresso.className = 'wizard-progress';
+progresso.innerHTML = '<div class="wizard-line"><strong id="wizard-count"></strong><span id="wizard-title"></span></div><progress id="wizard-bar" max="4" value="1" aria-label="Progresso do cadastro"></progress>';
+form.before(progresso);
+form.noValidate = true;
+const nav = document.createElement('div');
+nav.className = 'wizard-nav';
+const voltar = document.createElement('button');
+voltar.type = 'button'; voltar.className = 'btn light'; voltar.textContent = '← VOLTAR';
+const avancar = document.createElement('button');
+avancar.type = 'button'; avancar.className = 'btn'; avancar.textContent = 'AVANÇAR →';
+nav.append(voltar, avancar);
+form.append(nav);
+function renderCaptcha() {
+  if (!turnstileReady || etapa !== etapas.length - 1 || widgetId !== null || concluido) return;
+  widgetId = window.turnstile.render(captcha, {
+    sitekey: '0x4AAAAAAGU4QD9BmLzOnqm0',
+    action: 'solicitar_associacao',
+    theme: 'light', size: 'flexible',
+    callback: function(token) {
+      if (concluido || enviando) return;
+      turnstileToken = token;
+      sendStatus.textContent = 'Verificação de segurança concluída.';
+      atualizarBotao();
+    },
+    'expired-callback': function() { turnstileToken = ''; atualizarBotao(); },
+    'error-callback': function() {
+      turnstileToken = ''; atualizarBotao();
+      if (!enviando && !concluido) sendStatus.textContent = 'Falha na verificação. Tente novamente.';
+    },
+    'timeout-callback': function() { turnstileToken = ''; atualizarBotao(); }
+  });
+}
+function mostrarEtapa(n, mover = true) {
+  etapa = n;
+  etapas.forEach((painel, i) => { painel.hidden = i !== n; });
+  $('wizard-count').textContent = 'Etapa ' + (n + 1) + ' de ' + etapas.length;
+  $('wizard-title').textContent = nomes[n];
+  $('wizard-bar').value = n + 1;
+  voltar.hidden = n === 0;
+  avancar.hidden = n === etapas.length - 1;
+  nav.classList.toggle('wizard-first', n === 0);
+  if (n === etapas.length - 1) renderCaptcha();
+  if (mover) {
+    progresso.scrollIntoView({block:'start', behavior:'auto'});
+    const titulo = etapas[n].querySelector('h2');
+    titulo.tabIndex = -1;
+    titulo.focus({preventScroll:true});
+  }
+}
+function validarEtapa(n) {
+  for (const campo of etapas[n].querySelectorAll('input, select, textarea')) {
+    if (campo.id === 'cpf') {
+      const cpf = digits(campo.value);
+      const valido = cpf.length === 11 && !/^(\d)\1{10}$/.test(cpf) && [9,10].every(k => {
+        let soma = 0;
+        for (let j=0;j<k;j++) soma += Number(cpf[j])*(k+1-j);
+        return (soma*10%11)%10 === Number(cpf[k]);
+      });
+      campo.setCustomValidity(valido ? '' : 'Informe um CPF válido.');
+    }
+    if (campo.id === 'cep') campo.setCustomValidity(digits(campo.value).length === 8 ? '' : 'Informe um CEP com oito números.');
+    if (campo.id === 'telefone') campo.setCustomValidity([10,11].includes(digits(campo.value).length) ? '' : 'Informe o telefone com DDD.');
+    if (campo.required && campo.type !== 'checkbox' && campo.type !== 'date' && !campo.value.trim()) campo.setCustomValidity('Preencha este campo.');
+    if (!campo.checkValidity()) {
+      if (etapa !== n) mostrarEtapa(n);
+      campo.reportValidity();
+      return false;
+    }
+  }
+  return true;
+}
+form.addEventListener('input', e => { if (typeof e.target.setCustomValidity === 'function') e.target.setCustomValidity(''); });
+function proxima() { if (etapa === 1 && $('cepBtn').disabled) return; if (!enviando && !concluido && etapa < etapas.length-1 && validarEtapa(etapa)) mostrarEtapa(etapa+1); }
+avancar.addEventListener('click', proxima);
+voltar.addEventListener('click', () => { if (!enviando && !concluido && etapa>0) mostrarEtapa(etapa-1); });
+form.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox' && etapa < etapas.length-1) { e.preventDefault(); proxima(); }
+});
+mostrarEtapa(0, false);
 
 const configScript = document.createElement('script');
 configScript.src = 'config.js';
-
-configScript.onerror = () => {
-  sendStatus.textContent =
-    'Serviço indisponível. Atualize a página.';
-};
-
+configScript.onerror = () => { sendStatus.textContent = 'Serviço indisponível. Atualize a página.'; };
 configScript.onload = () => {
-
-  window.onColonialTurnstileReady = () => {
-
-    widgetId = window.turnstile.render(captcha, {
-      sitekey: '0x4AAAAAAGU4QD9BmLzOnqm0',
-      action: 'solicitar_associacao',
-      theme: 'light',
-      size: 'flexible',
-
-      callback: function(token) {
-        if (concluido || enviando) return;
-
-        turnstileToken = token;
-        sendStatus.textContent =
-          'Verificação de segurança concluída.';
-
-        atualizarBotao();
-      },
-
-      'expired-callback': function() {
-        turnstileToken = '';
-        atualizarBotao();
-      },
-
-      'error-callback': function() {
-        turnstileToken = '';
-        atualizarBotao();
-
-        if (!enviando && !concluido) {
-          sendStatus.textContent =
-            'Falha na verificação. Tente novamente.';
-        }
-      },
-
-      'timeout-callback': function() {
-        turnstileToken = '';
-        atualizarBotao();
-      }
-    });
-  };
-
+  window.onColonialTurnstileReady = () => { turnstileReady = true; renderCaptcha(); };
   const script = document.createElement('script');
-
-  script.src =
-    'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onColonialTurnstileReady';
-
+  script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onColonialTurnstileReady';
   script.async = true;
-
-  script.onerror = () => {
-    sendStatus.textContent =
-      'Não foi possível carregar a verificação de segurança.';
-  };
-
+  script.onerror = () => { sendStatus.textContent = 'Não foi possível carregar a verificação de segurança.'; };
   document.head.append(script);
 };
-
 document.head.append(configScript);
-
-sendStatus.textContent =
-  'Aguardando verificação de segurança…';
+sendStatus.textContent = 'Aguardando verificação de segurança…';
 
 form.addEventListener('submit', async e => {
-
   e.preventDefault();
-
-  if (enviando || concluido || !turnstileToken) return;
-
-  if (!form.reportValidity()) return;
-
+  if (enviando || concluido) return;
+  if (etapa !== etapas.length - 1) { proxima(); return; }
+  for (let i=0;i<etapas.length;i++) if (!validarEtapa(i)) return;
+  if (!turnstileToken) return;
   const config = window.COLONIAL_CONFIG;
-
-  if (!config?.supabaseUrl ||
-      !config?.supabasePublishableKey) {
-    sendStatus.textContent =
-      'Serviço temporariamente indisponível.';
-    return;
+  if (!config?.supabaseUrl || !config?.supabasePublishableKey) {
+    sendStatus.textContent = 'Serviço temporariamente indisponível.'; return;
   }
-
-  const campos = [
-    'nome','cpf','rg','data_nascimento',
-    'estado_civil','profissao','cep',
-    'endereco','numero','complemento',
-    'bairro','cidade','estado',
-    'telefone','email'
-  ];
-
+  const campos = ['nome','cpf','rg','data_nascimento','estado_civil','profissao','cep','endereco','numero','complemento','bairro','cidade','estado','telefone','email'];
   const body = {};
-
-  for (const campo of campos) {
-    body[campo] = $(campo).value.trim();
-  }
-
+  for (const campo of campos) body[campo] = $(campo).value.trim();
   body.cpf = digits(body.cpf);
   body.confirmacao = $('confirmacao').checked;
   body.turnstileToken = turnstileToken;
-
   enviando = true;
   turnstileToken = '';
   atualizarBotao();
-
-  const controles = [...form.elements]
-    .filter(c => c !== sendBtn && !c.disabled);
-
+  const controles = [...form.elements].filter(c => c !== sendBtn && !c.disabled);
   controles.forEach(c => c.disabled = true);
-
   sendBtn.textContent = 'ENVIANDO…';
-  sendStatus.textContent =
-    'Enviando sua solicitação com segurança…';
-
+  sendStatus.textContent = 'Enviando sua solicitação com segurança…';
   try {
-
-    const response = await fetch(
-      config.supabaseUrl +
-      '/functions/v1/solicitar-associacao',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': config.supabasePublishableKey
-        },
-        body: JSON.stringify(body)
-      }
-    );
-
+    const response = await fetch(config.supabaseUrl + '/functions/v1/solicitar-associacao', {
+      method:'POST', headers:{'Content-Type':'application/json','apikey':config.supabasePublishableKey}, body:JSON.stringify(body)
+    });
     const data = await response.json();
-
-    if (!response.ok || data.sucesso !== true) {
-      throw Error(
-        data.erro ||
-        'Não foi possível enviar a solicitação.'
-      );
-    }
-
+    if (!response.ok || data.sucesso !== true) throw Error(data.erro || 'Não foi possível enviar a solicitação.');
     concluido = true;
-
     form.reset();
-
     captcha.hidden = true;
-
+    nav.hidden = true;
+    progresso.hidden = true;
+    etapas[3].querySelector('.checkline').hidden = true;
     sendBtn.textContent = 'SOLICITAÇÃO ENVIADA';
-
-    sendStatus.textContent =
-      'Solicitação recebida para análise. Aguarde as orientações do clube por e-mail.';
-
+    sendStatus.textContent = 'Solicitação recebida para análise. Aguarde as orientações do clube por e-mail.';
     sendStatus.style.color = '#15803d';
-
   } catch (error) {
-
-    sendStatus.textContent =
-      error.message || 'Falha de conexão. Tente novamente.';
-
+    sendStatus.textContent = error.message || 'Falha de conexão. Tente novamente.';
     sendBtn.textContent = 'ENVIAR SOLICITAÇÃO';
-
   } finally {
-
     enviando = false;
-
     if (!concluido) {
       controles.forEach(c => c.disabled = false);
-
-      if (widgetId !== null && window.turnstile) {
-        window.turnstile.reset(widgetId);
-      }
+      if (widgetId !== null && window.turnstile) window.turnstile.reset(widgetId);
     }
-
     atualizarBotao();
   }
 });
-
 })();
 </script>
 </body></html>
