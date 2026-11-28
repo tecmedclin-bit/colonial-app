@@ -39,24 +39,7 @@
   document.getElementById('takeSelfie').addEventListener('click', () => {if(activeMember && !fotoTravada(activeMember)) selfieInput.click();});
   document.getElementById('choosePhoto').addEventListener('click', () => {if(activeMember && !fotoTravada(activeMember)) galleryInput.click();});
   
-async function prepararFoto(file) {
-    if (!file ||
-        !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) ||
-        file.size > 5 * 1024 * 1024) {
-        throw new Error('Escolha uma fotografia de até 5 MB.');
-    }
-
-    const image = new Image();
-    const url = URL.createObjectURL(file);
-    let segmenter;
-
-    try {
-        await new Promise((resolve, reject) => {
-            image.onload = resolve;
-            image.onerror = reject;
-            image.src = url;
-        });
-
+  async function criarSegmentadorFoto() {
         const { ImageSegmenter, FilesetResolver } = await import(
             'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/vision_bundle.mjs'
         );
@@ -65,7 +48,7 @@ async function prepararFoto(file) {
             'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm'
         );
 
-        segmenter = await ImageSegmenter.createFromOptions(vision, {
+        return await ImageSegmenter.createFromOptions(vision, {
             baseOptions: {
                 modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite',
                 delegate: 'CPU'
@@ -74,6 +57,34 @@ async function prepararFoto(file) {
             outputConfidenceMasks: true,
             outputCategoryMask: false
         });
+  }
+  function iniciarModeloFoto() {
+    // Capture failure immediately; preloading cannot produce an unhandled rejection.
+    return criarSegmentadorFoto().then(segmentador=>({segmentador}),erro=>({erro}));
+  }
+  function liberarModeloFoto(modelo) {
+    if (modelo) void modelo.then(({segmentador})=>segmentador?.close()).catch(()=>{});
+  }
+async function prepararFoto(file, modelo = null) {
+    let url, segmenter;
+    try {
+        if (!file ||
+            !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) ||
+            file.size > 5 * 1024 * 1024) {
+            throw new Error('Escolha uma fotografia de até 5 MB.');
+        }
+        const image = new Image();
+        url = URL.createObjectURL(file);
+        // Decode the photo while the segmentation model is being initialized.
+        modelo = modelo || iniciarModeloFoto();
+        await new Promise((resolve, reject) => {
+            image.onload = resolve;
+            image.onerror = reject;
+            image.src = url;
+        });
+        const resultadoModelo = await modelo;
+        if (!resultadoModelo.segmentador) throw resultadoModelo.erro || new Error('Modelo de fotografia indisponível.');
+        segmenter = resultadoModelo.segmentador;
 
         const iw = image.naturalWidth;
         const ih = image.naturalHeight;
@@ -176,7 +187,8 @@ async function prepararFoto(file) {
 
     } finally {
         if (segmenter) segmenter.close();
-        URL.revokeObjectURL(url);
+        else liberarModeloFoto(modelo);
+        if (url) URL.revokeObjectURL(url);
     }
 }
 
@@ -392,6 +404,11 @@ ctx.filter = 'none';
   async function carregarFoto(person, uid, caminho) {
     const atual = () => activeMember === person &&
       (person.foto_pendente || person.caminho_foto) === caminho;
+    const pronta = caminho.endsWith('-fundo-branco.jpg');
+    // Legacy photos need processing. Start the model and the signed URL request in parallel.
+    // Newly submitted white-background photos are displayed without loading the model.
+    const modelo = pronta ? null : iniciarModeloFoto();
+    let modeloEntregue = false;
     try {
       let timeoutFoto;
       const {data,error}=await Promise.race([sb.storage.from('fotos-associados').createSignedUrl(caminho,120),new Promise((_,reject)=>{timeoutFoto=setTimeout(()=>reject(new Error('Tempo de consulta da foto excedido')),12000);})]).finally(()=>clearTimeout(timeoutFoto));
@@ -402,7 +419,11 @@ ctx.filter = 'none';
       const imagem = await resposta.blob();
       if (!atual()) return;
       // Novos arquivos identificados já foram tratados antes do envio.
-      const tratada = caminho.endsWith('-fundo-branco.jpg') ? imagem : await prepararFoto(imagem);
+      let tratada = imagem;
+      if (!pronta) {
+        modeloEntregue = true;
+        tratada = await prepararFoto(imagem,modelo);
+      }
       if (!atual()) return;
       limparFotoLocal();
       localPhotoPreview = URL.createObjectURL(tratada);
@@ -411,6 +432,8 @@ ctx.filter = 'none';
     } catch (erro) {
       console.warn('Não foi possível preparar a fotografia:', erro);
       if (atual()) document.getElementById('fallbackPhoto').textContent = 'FOTO INDISPONÍVEL';
+    } finally {
+      if (!modeloEntregue) liberarModeloFoto(modelo);
     }
   }
     // Preferencia de acesso biometrico neste navegador
