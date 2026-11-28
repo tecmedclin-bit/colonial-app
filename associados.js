@@ -1,5 +1,5 @@
 (async () => {
-  const app = window.colonial;
+  const app = window.colonial || {client:null,ready:false,requireConfig:()=>false};
   const sb = app.client;
   const form = document.getElementById('loginForm');
   const loginPanel = document.getElementById('loginPanel');
@@ -9,6 +9,9 @@
   const selfiePanel = document.getElementById('selfiePanel');
   const selfieInput = document.getElementById('selfieInput');
   const galleryInput = document.getElementById('galleryInput');
+  const embedded = window.parent!==window && new URLSearchParams(location.search).get('interno')==='1';
+  const notifyParent = (type,extra={}) => {if(embedded)window.parent.postMessage({type,...extra},location.origin);};
+  let verifiedMemberUid = null;
   let activeMember = null;
   let localPhotoPreview = null;
   let localPhotoPath = null;
@@ -196,7 +199,7 @@ async function prepararFotoAntiga(file) {
       pctx.drawImage(image,sx,sy,sw,sh,0,0,w,h);
       pctx.filter='none';
       // O modelo roda no dispositivo; a foto não é enviada ao provedor do modelo.
-      if(typeof window.SelfieSegmentation!=='function') throw new Error('A remoção do fundo está indisponível. Verifique a conexão e tente novamente.');
+      if(typeof window.SelfieSegmentation!=='function') await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/selfie_segmentation.js';script.onload=resolve;script.onerror=()=>reject(new Error('A remoção do fundo está indisponível.'));document.head.append(script);});
       const segmenter=new window.SelfieSegmentation({locateFile:(file)=>'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/'+file});
       let resultado=false;
       segmenter.setOptions({modelSelection:0});
@@ -339,6 +342,7 @@ ctx.filter = 'none';
   }
   selfieInput.addEventListener('change',enviarFoto);galleryInput.addEventListener('change',enviarFoto);
   async function showMember(){
+    verifiedMemberUid=null;
     const {data:userData,error:userError}=await sb.auth.getUser();const user=userData?.user;
     if(userError||!user){activeMember=null;limparFotoLocal();loginPanel.hidden=false;memberPanel.hidden=true;return;}
     const {data:person,error}=await sb.from('associados')
@@ -358,24 +362,26 @@ ctx.filter = 'none';
     document.getElementById('fallbackPhoto').hidden=false;
     const url=new URL(app.config.appBaseUrl.replace(/\/$/,'')+'/validar.html');url.searchParams.set('t',person.token_validacao);
     const qr=document.getElementById('qr');qr.replaceChildren();
-    if(window.QRCode)new window.QRCode(qr,{text:url.toString(),width:256,height:256,correctLevel:window.QRCode.CorrectLevel.M});
-    else{const a=document.createElement('a');a.href=url.href;a.textContent='Validar carteirinha';qr.append(a);}
+    try{if(!window.QRCode)throw Error('QR indisponível');new window.QRCode(qr,{text:url.toString(),width:256,height:256,correctLevel:window.QRCode.CorrectLevel.M});}
+    catch(_){qr.replaceChildren();const a=document.createElement('a');a.href=url.href;a.textContent='Validar';a.target='_blank';a.rel='noopener';qr.append(a);}
     app.status('cardStatusMessage','Sua carteirinha é pessoal. A validação depende de conexão com a internet.');
+    card.hidden=false;
+    verifiedMemberUid=user.id;
     const caminhoExibido = person.foto_pendente || person.caminho_foto;
     if (localPhotoUser !== user.id || localPhotoPath !== caminhoExibido) limparFotoLocal();
-    if (caminhoExibido) {
-      if (localPhotoPreview) {
-        try { await exibirFotoPronta(localPhotoPreview, person); }
-        catch (_) { limparFotoLocal(); await carregarFoto(person, user.id, caminhoExibido); }
-      } else {
-        app.status('cardStatusMessage','Preparando sua carteirinha…');
-        await carregarFoto(person, user.id, caminhoExibido);
-      }
+    if(caminhoExibido){
+      document.getElementById('fallbackPhoto').textContent='CARREGANDO FOTO';
+      // Foto não bloqueia o QR, a carteirinha ou a navegação.
+      void (async()=>{
+        if(localPhotoPreview){
+          try { await exibirFotoPronta(localPhotoPreview,person); return; }
+          catch (_) { limparFotoLocal(); }
+        }
+        await carregarFoto(person,user.id,caminhoExibido);
+      })().catch(()=>{if(activeMember===person)document.getElementById('fallbackPhoto').textContent='FOTO INDISPONÍVEL';});
     }
-    if (activeMember !== person) return;
-    card.hidden=false;
-    app.status('cardStatusMessage','Sua carteirinha é pessoal. A validação depende de conexão com a internet.');
   }
+
   async function exibirFotoPronta(url, person) {
     const imagem = new Image();
     imagem.src = url;
@@ -387,10 +393,11 @@ ctx.filter = 'none';
     const atual = () => activeMember === person &&
       (person.foto_pendente || person.caminho_foto) === caminho;
     try {
-      const {data, error} = await sb.storage.from('fotos-associados').createSignedUrl(caminho,120);
+      let timeoutFoto;
+      const {data,error}=await Promise.race([sb.storage.from('fotos-associados').createSignedUrl(caminho,120),new Promise((_,reject)=>{timeoutFoto=setTimeout(()=>reject(new Error('Tempo de consulta da foto excedido')),12000);})]).finally(()=>clearTimeout(timeoutFoto));
       if (error || !data?.signedUrl) throw new Error('Foto indisponível');
       if (!atual()) return;
-      const resposta = await fetch(data.signedUrl);
+      const resposta = await fetch(data.signedUrl,{signal:AbortSignal.timeout(12000)});
       if (!resposta.ok) throw new Error('Foto indisponível');
       const imagem = await resposta.blob();
       if (!atual()) return;
@@ -600,6 +607,7 @@ ctx.filter = 'none';
     activeMember=null;
 
     limparFotoLocal();
+    notifyParent('colonial:member-logout');
   });
 
   if(sb){
@@ -608,11 +616,10 @@ ctx.filter = 'none';
     try {
       const {data:{session}}=await sb.auth.getSession();
 
-      if(bioDisponivel && bioPreferida() &&
-        (!session || session.user.id===bioPreferida())) {
-        await entrarBio();
-      } else if(session) {
+      if(session) {
         await showMember();
+      } else if(!embedded && bioDisponivel && bioPreferida()) {
+        await entrarBio();
       } else {
         loginPanel.hidden=false;
       }
@@ -632,5 +639,11 @@ ctx.filter = 'none';
   document.documentElement.classList.remove('card-boot');
   const boot = document.getElementById('cardBoot');
   if (boot) boot.hidden = true;
+  if(embedded){
+    // A página só é revelada após validação real do associado, sem aguardar a foto.
+    if(verifiedMemberUid && activeMember?.situacao==='ativo' && !card.hidden){
+      notifyParent('colonial:member-ready',{uid:verifiedMemberUid});
+    }else notifyParent('colonial:member-error');
+  }
 })();
     
