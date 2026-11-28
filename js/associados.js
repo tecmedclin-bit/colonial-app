@@ -628,5 +628,9 @@ ctx.filter = 'none';
   } else {
     loginPanel.hidden=false;
   }
+  clearTimeout(window.cardBootTimer);
+  document.documentElement.classList.remove('card-boot');
+  const boot = document.getElementById('cardBoot');
+  if (boot) boot.hidden = true;
 })();
     
