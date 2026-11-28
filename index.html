@@ -153,8 +153,22 @@
     .cms-notice button{background:none;border:0;color:#175496;font-weight:700;padding:8px;text-decoration:underline}
 
     /* Central de serviços: telas internas independentes, sem alterar o CMS. */
-    .home .hero{min-height:0;padding:26px 22px;background:#071b39;display:block;border-radius:0 0 24px 24px}
-    .home .hero h1{font-size:24px;margin:0 0 8px;letter-spacing:-.4px}.home .hero .eyebrow{font-size:12px;letter-spacing:0;margin-bottom:12px}
+    /* Menu principal: fachada original e saudação em destaque. */
+    .home .hero{min-height:150px;padding:26px 22px 24px;background:linear-gradient(90deg,rgba(4,20,44,.86),rgba(4,20,44,.64)),var(--home-photo,none) center 49% / cover no-repeat #071b39;display:flex;flex-direction:column;justify-content:center;border-radius:0 0 24px 24px;box-sizing:border-box}
+    .home .hero .eyebrow{display:block;font-size:clamp(22px,6.2vw,29px);line-height:1.18;letter-spacing:-.35px;font-weight:800;margin:0 0 7px;color:#fff;overflow-wrap:anywhere;text-shadow:0 1px 8px #0005}
+    .home .hero h1{font-size:14px;line-height:1.4;font-weight:500;letter-spacing:0;margin:0 0 7px;color:#f0f5fd}
+    .home .hero p{font-size:12px;color:#e4edf9}
+    #logoutHome{display:block;width:max-content;max-width:100%;min-height:44px;margin:12px auto 4px;padding:8px 16px;font-size:12px;background:#e9eff7;color:#153b6b}
+    #changePasswordHome{width:100%;min-height:44px;background:#f4f7fb;color:#153b6b;border:1px solid #dfe6ee;text-align:left;font-size:13px;padding:10px 14px}
+    #passwordForm{display:grid;gap:8px;margin:12px 0;font-family:Arial,sans-serif}
+    #passwordForm label{font-size:12px;font-weight:700;color:#153b6b}
+    #passwordForm input{box-sizing:border-box;width:100%;min-height:44px;border:1px solid #ccd9e7;border-radius:8px;padding:9px 12px;font:16px Arial,sans-serif;background:#fff;color:#152d49}
+    #passwordForm p{font-size:12px;line-height:1.45;margin:2px 0;color:#52667c}
+    #passwordForm #passwordStatus{overflow-wrap:anywhere}
+    #passwordForm #passwordStatus[data-state="error"]{color:#a32121}
+    #passwordForm #passwordStatus[data-state="success"]{color:#166534}
+    #passwordForm button{width:100%;min-height:44px;font-size:13px;margin:5px 0 0}
+    .dialog{max-height:calc(100dvh - 40px);overflow:auto;box-sizing:border-box}
     /* Menu compacto em tres colunas, inspirado em aplicativos bancarios. */
     .home .quick-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;max-width:340px;width:100%;margin-inline:auto}
     .home .quick-card{box-sizing:border-box;aspect-ratio:1;min-height:0;padding:6px 4px;gap:7px;align-items:center;justify-content:center;text-align:center;background:#fff;color:#163d72;border:1px solid #aab8c8;border-radius:7px;box-shadow:none;min-width:0}
@@ -331,7 +345,7 @@
     <button type="button" id="navMore"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Mais</button>
   </nav>
   <div id="memberNavStatus" class="member-nav-status" role="status" hidden></div>
-  <div class="dialog-overlay" id="dialogOverlay" role="presentation"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><h3 id="dialogTitle">Em desenvolvimento</h3><p id="dialogText">Esta função será ativada na versão definitiva do aplicativo.</p><div id="dialogLinks" class="dialog-links" hidden></div><button type="button" id="logoutHome" hidden style="display:block;width:100%;background:#e9eff7;color:#153b6b">Sair da conta</button><button type="button" id="closeDialog">Entendi</button></div></div>
+  <div class="dialog-overlay" id="dialogOverlay" role="presentation"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><h3 id="dialogTitle">Em desenvolvimento</h3><p id="dialogText">Esta função será ativada na versão definitiva do aplicativo.</p><div id="dialogLinks" class="dialog-links" hidden></div><button type="button" id="changePasswordHome" hidden>Alterar senha</button><form id="passwordForm" hidden autocomplete="on"><label for="currentPassword">Senha atual</label><input id="currentPassword" name="current-password" type="password" autocomplete="current-password" required><label for="newPassword">Nova senha</label><input id="newPassword" name="new-password" type="password" autocomplete="new-password" minlength="8" required><p>Use pelo menos 8 caracteres e um caractere especial.</p><label for="confirmPassword">Confirmar nova senha</label><input id="confirmPassword" name="confirm-password" type="password" autocomplete="new-password" minlength="8" required><p id="passwordStatus" role="status" aria-live="polite" hidden></p><button id="savePassword" type="submit">Salvar nova senha</button></form><button type="button" id="logoutHome" hidden>Sair da conta</button><button type="button" id="closeDialog">Entendi</button></div></div>
 </div>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -341,6 +355,8 @@
  const video=document.getElementById('openingVideo'); const intro=document.getElementById('intro'); const reveal=document.getElementById('reveal'); const flash=document.getElementById('flash'); const home=document.getElementById('home'); const bottomNav=document.getElementById('bottomNav'); const controls=document.getElementById('videoControls'); const startOverlay=document.getElementById('startOverlay'); const soundBtn=document.getElementById('soundBtn'); let showing=false;
  const boot=document.getElementById("navigationBoot");
  reveal.style.setProperty('--welcome-photo', 'url("'+video.poster+'")');
+  const facade=document.querySelector('#nossa-historia .history-photo');
+  if(facade?.getAttribute('src'))home.querySelector('.hero').style.setProperty('--home-photo','url("'+facade.getAttribute('src')+'")');
  // Abertura do convite: reutiliza o vídeo e o brasão originais dentro da ativação.
  const conviteAbertura=window.parent!==window && new URLSearchParams(location.search).get('abertura')==='convite';
  if(conviteAbertura){
@@ -389,7 +405,7 @@
  soundBtn.addEventListener('click',()=>{video.muted=!video.muted;soundBtn.textContent=video.muted?'Som: off':'Som: on';soundBtn.setAttribute('aria-label',video.muted?'Ativar som':'Desativar som')});
  document.getElementById('replayHome').addEventListener('click',replay);
  const overlay=document.getElementById('dialogOverlay');const title=document.getElementById('dialogTitle');const text=document.getElementById('dialogText');const links=document.getElementById('dialogLinks');
- function openPanel(name,message,items=[]){document.getElementById('logoutHome').hidden=true;title.textContent=name;text.textContent=message;links.replaceChildren();for(const item of items){const a=document.createElement('a');a.textContent=item.label;a.href=item.href;if(item.external){a.target='_blank';a.rel='noopener noreferrer';}links.append(a);}links.hidden=!items.length;overlay.classList.add('open');document.getElementById('closeDialog').focus();}
+ function openPanel(name,message,items=[]){resetPasswordPanel();document.getElementById('logoutHome').hidden=true;document.getElementById('changePasswordHome').hidden=true;title.textContent=name;text.textContent=message;links.replaceChildren();for(const item of items){const a=document.createElement('a');a.textContent=item.label;a.href=item.href;if(item.external){a.target='_blank';a.rel='noopener noreferrer';}links.append(a);}links.hidden=!items.length;overlay.classList.add('open');document.getElementById('closeDialog').focus();}
  function dialog(name){openPanel(name,'O módulo de reservas está em preparação. Nenhuma reserva será realizada nesta etapa.',[{label:'Acessar área do associado',href:'associados.html?v=20261128-6'}]);}
  function joinPanel(){openPanel('Torne-se associado','Quer fazer parte do Colonial? Entre em contato com o clube para conhecer as condições de associação e solicitar seu cadastro.',[{label:'Falar com o clube pelo WhatsApp',href:'https://wa.me/5521986361883?text=Ol%C3%A1%2C%20quero%20saber%20como%20me%20tornar%20associado%20do%20Colonial%20Esporte%20Clube.',external:true},{label:'Já sou associado — entrar',href:'associados.html?v=20261128-6'}]);}
  function projectsPanel(){openPanel('Projetos sociais','Conheça as iniciativas de esporte e convivência do Colonial Esporte Clube em Papucaia.',[{label:'Conhecer projetos no site oficial',href:'https://colonialesporteclube.com.br/',external:true}]);}
@@ -408,7 +424,45 @@
       details.querySelector('summary').focus({preventScroll:true});
     });
    document.getElementById('logoutHome').hidden=false;
+   document.getElementById('changePasswordHome').hidden=false;
  }
+ const passwordForm=document.getElementById('passwordForm'),changePasswordHome=document.getElementById('changePasswordHome'),closeDialog=document.getElementById('closeDialog'),passwordStatus=document.getElementById('passwordStatus'),savePassword=document.getElementById('savePassword');
+ let passwordBusy=false;
+ function passwordMessage(message,state=''){passwordStatus.textContent=message;passwordStatus.dataset.state=state;passwordStatus.hidden=!message;}
+ function resetPasswordPanel(){passwordForm.reset();passwordForm.hidden=true;passwordMessage('');closeDialog.textContent='Entendi';}
+ function dismissPanel(){if(passwordBusy)return;resetPasswordPanel();overlay.classList.remove('open');}
+ changePasswordHome.addEventListener('click',()=>{
+   if(!membroAutorizado||home.hidden)return;
+   openPanel('Alterar senha','Confirme sua senha atual e escolha uma nova senha.');
+   passwordForm.hidden=false;closeDialog.textContent='Cancelar';document.getElementById('currentPassword').focus();
+ });
+ passwordForm.addEventListener('submit',async e=>{
+   e.preventDefault();if(passwordBusy||!membroAutorizado||home.hidden)return;
+   const sb=window.colonial?.client,uid=membroAutorizado;
+   const current=document.getElementById('currentPassword').value,next=document.getElementById('newPassword').value,confirmation=document.getElementById('confirmPassword').value;
+   if(next.length<8||!/[^\p{L}\p{N}\s]/u.test(next))return passwordMessage('Use pelo menos 8 caracteres e um caractere especial.','error');
+   if(next!==confirmation)return passwordMessage('As novas senhas não coincidem.','error');
+   if(current===next)return passwordMessage('Escolha uma senha diferente da atual.','error');
+   passwordBusy=true;savePassword.disabled=true;closeDialog.disabled=true;passwordMessage('Verificando sua senha atual…');
+   for(const field of passwordForm.querySelectorAll('input'))field.disabled=true;
+   try{
+     if(!sb)throw new Error('Conexão indisponível. Tente novamente.');
+     const verified=await sb.auth.getUser();const user=verified.data?.user;
+     if(verified.error||!user||user.id!==uid||membroAutorizado!==uid)throw new Error('Sessão inválida. Entre novamente.');
+     // Reautenticação real com a conta atual; não confia apenas na validação local.
+     const credentials=user.email?{email:user.email,password:current}:user.phone?{phone:user.phone,password:current}:null;
+     if(!credentials)throw new Error('Não foi possível confirmar sua identidade. Procure a secretaria.');
+     const renewed=await sb.auth.signInWithPassword(credentials);
+     if(renewed.error||renewed.data?.user?.id!==uid||renewed.data?.session?.user?.id!==uid)throw new Error('Não foi possível confirmar a senha atual. Confira a senha e a conexão.');
+     if(membroAutorizado!==uid||home.hidden)throw new Error('Sessão alterada. Entre novamente.');
+     passwordMessage('Salvando sua nova senha…');
+     const result=await sb.auth.updateUser({password:next,current_password:current});
+     if(result.error){if(result.error.code==='weak_password')throw new Error('A nova senha não atende aos requisitos de segurança. Escolha outra.');if(result.error.code==='same_password')throw new Error('Escolha uma senha diferente da atual.');throw new Error('Não foi possível alterar a senha. Confira a conexão e tente novamente.');}
+     if(result.data?.user?.id!==uid)throw new Error('Não foi possível confirmar a alteração.');
+     passwordForm.reset();passwordForm.hidden=true;title.textContent='Senha alterada!';text.textContent='Sua nova senha foi salva com sucesso. Use-a nos próximos acessos.';closeDialog.textContent='Concluir';
+   }catch(err){passwordForm.reset();passwordMessage(err.message||'Não foi possível alterar a senha.','error');}
+   finally{passwordBusy=false;savePassword.disabled=false;closeDialog.disabled=false;for(const field of passwordForm.querySelectorAll('input'))field.disabled=false;}
+ });
  document.getElementById('logoutHome').addEventListener('click',async()=>{
    const btn=document.getElementById('logoutHome');btn.disabled=true;
    try{const {error}=await window.colonial.client.auth.signOut();if(error)throw error;location.replace('./');}
@@ -417,7 +471,7 @@
  });
  document.getElementById('joinCard').addEventListener('click',joinPanel);
  document.getElementById('projectsCard').addEventListener('click',()=>showScreen('projects'));
- document.querySelectorAll('[data-demo]').forEach(el=>el.addEventListener('click',()=>dialog(el.getAttribute('data-demo'))));document.getElementById('closeDialog').addEventListener('click',()=>overlay.classList.remove('open'));overlay.addEventListener('click',(e)=>{if(e.target===overlay)overlay.classList.remove('open')});document.addEventListener('keydown',e=>{if(e.key==='Escape')overlay.classList.remove('open')});
+ document.querySelectorAll('[data-demo]').forEach(el=>el.addEventListener('click',()=>dialog(el.getAttribute('data-demo'))));closeDialog.addEventListener('click',dismissPanel);overlay.addEventListener('click',(e)=>{if(e.target===overlay)dismissPanel()});document.addEventListener('keydown',e=>{if(e.key==='Escape')dismissPanel()});
  // Acesso ao app: sessão válida e cadastro autorizado, associado ou usuário comum.
  const inicioDireto=!conviteAbertura && new URLSearchParams(location.search).get('inicio')==='1';
  let verificacao=0, membroAutorizado=null, tipoAcesso=null, verificando=false;
@@ -595,7 +649,7 @@
    membroAtivo=false;discardMember();
    cmsClear();
    home.hidden=true;bottomNav.hidden=true;boot.hidden=true;intro.hidden=false;
-   overlay.classList.remove('open');membroAutorizado=null;tipoAcesso=null;
+   resetPasswordPanel();overlay.classList.remove('open');membroAutorizado=null;tipoAcesso=null;
    accessNotice.textContent=mensagem;accessNotice.hidden=!mensagem;video.pause();showing=true;controls.hidden=true;startOverlay.classList.remove('visible');flash.classList.remove('go');reveal.classList.add('visible');reveal.setAttribute('aria-hidden','false');
  }
  function aplicarPerfil(tipo, situacao){
