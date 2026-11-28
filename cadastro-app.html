@@ -19,6 +19,18 @@ button:disabled{opacity:.55;cursor:wait}
 .link{display:block;text-align:center;color:#d4e4f6;font-size:13px;margin-top:20px}
 #status{font-size:14px;line-height:1.6;text-align:center;overflow-wrap:anywhere}
 .error{color:#ffb5b5}.success{color:#a9efc5}[hidden]{display:none!important}
+
+/* Ajustes exclusivos do formulário de login */
+#login{max-width:300px;margin:0 auto}
+#login label{font-size:13px;margin-bottom:6px}
+#login input{height:40px;padding:8px 12px;font-size:14px;margin-bottom:13px;border-radius:8px}
+#login .password-field{position:relative;margin-bottom:16px}
+#login .password-field input{display:block;padding-right:48px;margin:0}
+#login .password-toggle{position:absolute;right:2px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:44px;min-height:44px;height:44px;padding:0;border:0;border-radius:7px;background:transparent;color:#24384e;line-height:0}
+#login .password-toggle svg{width:20px;height:20px;pointer-events:none}
+#login .password-toggle:focus-visible{outline:2px solid #477ab5;outline-offset:-5px}
+#login #entrar{display:block;width:76%;max-width:228px;min-height:38px;margin:0 auto;padding:9px 14px;font-size:13px}
+#login .link{margin-top:17px;font-size:12px}
 </style>
 </head>
 <body>
@@ -44,7 +56,13 @@ button:disabled{opacity:.55;cursor:wait}
 <label for="loginEmail">E-mail ou CPF</label>
 <input id="loginEmail" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="254" placeholder="Digite seu e-mail ou CPF" required>
 <label for="loginSenha">Senha</label>
+<div class="password-field">
 <input id="loginSenha" type="password" autocomplete="current-password" placeholder="Digite sua senha" required>
+<button id="toggleLoginSenha" class="password-toggle" type="button" aria-label="Mostrar senha" aria-controls="loginSenha" aria-pressed="false" title="Mostrar senha">
+<svg id="loginEye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+<svg id="loginEyeOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6 Q12 0.8 19 6 M2.5 11 Q12 23 21.5 11 M5.8 14.5 L3.2 17.5 M9.1 16.8 L7.7 20 M12 17.4 V21 M14.9 16.8 L16.3 20 M18.2 14.5 L20.8 17.5"/></svg>
+</button>
+</div>
 <button type="submit" id="entrar">ENTRAR</button>
 <a href="#" class="link" id="abrirCadastro">Ainda não possui conta? Cadastre-se</a>
 </form>
@@ -62,6 +80,22 @@ const sb=window.colonial?.client;
 const $=id=>document.getElementById(id);
 const digits=v=>String(v||'').replace(/\D/g,'');
 let ocupado=false;
+
+// Alternar apenas a visualização da senha; não altera a autenticação.
+const campoSenhaLogin=$('loginSenha'), olhoLogin=$('toggleLoginSenha');
+function senhaLoginVisivel(visivel){
+    campoSenhaLogin.type=visivel?'text':'password';
+    $('loginEye').toggleAttribute('hidden', !visivel);
+    $('loginEyeOff').toggleAttribute('hidden', visivel);
+    olhoLogin.setAttribute('aria-pressed',String(visivel));
+    olhoLogin.setAttribute('aria-label',visivel?'Ocultar senha':'Mostrar senha');
+    olhoLogin.title=visivel?'Ocultar senha':'Mostrar senha';
+}
+olhoLogin.addEventListener('click',()=>senhaLoginVisivel(campoSenhaLogin.type==='password'));
+$('login').addEventListener('reset',()=>senhaLoginVisivel(false));
+new MutationObserver(()=>{if($('login').hidden)senhaLoginVisivel(false);}).observe($('login'),{attributes:true,attributeFilter:['hidden']});
+window.addEventListener('pagehide',()=>senhaLoginVisivel(false));
+
 function mensagem(texto,tipo=''){$('status').textContent=texto;$('status').className=tipo;}
 function mostrarCadastro(){$('titulo').textContent='Crie sua conta';$('subtitulo').textContent='Faça parte da comunidade Colonial.';$('cadastro').hidden=false;$('login').hidden=true;$('sair').hidden=true;}
 function mostrarLogin(){$('titulo').textContent='Acesse sua conta';$('subtitulo').textContent='O Colonial agora na palma da sua mão.';$('cadastro').hidden=true;$('login').hidden=false;$('sair').hidden=true;}
@@ -132,6 +166,7 @@ $('cadastro').addEventListener('submit',async event=>{
 $('login').addEventListener('submit',async event=>{
     event.preventDefault();if(!sb||ocupado)return;
     const identificador=$('loginEmail').value.trim(),senha=$('loginSenha').value;
+    senhaLoginVisivel(false);
     const porEmail=identificador.includes('@');
     const cpf=digits(identificador);
     if(!porEmail&&(!/^[\d.\-\s]+$/.test(identificador)||cpf.length!==11))return mensagem('Informe seu e-mail ou CPF válido.','error');
