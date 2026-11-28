@@ -165,6 +165,10 @@
     .home .quick-card:active{transform:scale(.98)}.home .route-away{display:none!important}
     .screen-bar{margin:18px 21px 0}.screen-bar button{border:1px solid #dce5ef;border-radius:10px;background:#fff;color:#163d72;padding:12px 15px;font-weight:700;font-size:13px}.home[data-screen]:not([data-screen="menu"]) .home-section{padding-top:18px}
     .empty-screen{color:#60738b;background:#fff;border:1px solid #dce5ef;border-radius:13px;padding:16px;font-size:13px;line-height:1.5}
+    /* Carteirinha preparada em segundo plano, sem recarregar o menu. */
+    .member-view{position:absolute;inset:0;width:100%;height:100%;border:0;background:#f4f7fb;z-index:40;visibility:hidden;pointer-events:none}
+    .member-view.is-open{visibility:visible;pointer-events:auto}
+    .member-nav-status{position:absolute;left:16px;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));padding:10px 12px;border-radius:9px;background:#fff;color:#163d72;border:1px solid #dce5ef;font-size:12px;z-index:19;text-align:center;box-shadow:0 4px 14px #071b3915}
   </style>
 </head>
 <body>
@@ -237,7 +241,7 @@
     <section class="home-section" id="atalhos"><div class="section-top"><h2>Explore o Colonial</h2><span>Seu clube no celular</span></div>
       <div class="quick-grid">
         <button class="quick-card feature" type="button" id="joinCard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m4-15v6m-3-3h6"/></svg><strong>Torne-se associado</strong><small>Saiba como fazer parte do clube</small></button>
-        <a class="quick-card" id="memberCardLink" href="associados.html?v=20261128-4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M5 17c.5-2 5.5-2 6 0m3-7h5m-5 4h5"/></svg><strong>Carteirinha digital</strong><small>Sua identificação de associado</small></a>
+        <a class="quick-card" id="memberCardLink" href="associados.html?v=20261128-6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M5 17c.5-2 5.5-2 6 0m3-7h5m-5 4h5"/></svg><strong>Carteirinha digital</strong><small>Sua identificação de associado</small></a>
         <button class="quick-card" id="bookingsCard" type="button" data-demo="Reserva de espaços"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18m-13 5 2.5 2.5L16 14"/></svg><strong>Reservas</strong><small>Campo, piscina e ginásio — em desenvolvimento</small></button>
         <button class="quick-card" type="button" id="projectsCard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M3 12h18m-9-9c-5 5-5 13 0 18m0-18c5 5 5 13 0 18"/></svg><strong>Projetos sociais</strong><small>Conheça as iniciativas do clube</small></button>
         <button class="quick-card" type="button" data-screen-target="benefits" id="benefitsMenu" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h8l10 10-7 7L3 10z M7 8h.01"/></svg><strong>Clube de vantagens</strong><small>Descontos exclusivos</small></button>
@@ -326,6 +330,7 @@
     <button type="button" id="navBookings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18"/></svg>Reservas</button>
     <button type="button" id="navMore"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Mais</button>
   </nav>
+  <div id="memberNavStatus" class="member-nav-status" role="status" hidden></div>
   <div class="dialog-overlay" id="dialogOverlay" role="presentation"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><h3 id="dialogTitle">Em desenvolvimento</h3><p id="dialogText">Esta função será ativada na versão definitiva do aplicativo.</p><div id="dialogLinks" class="dialog-links" hidden></div><button type="button" id="logoutHome" hidden style="display:block;width:100%;background:#e9eff7;color:#153b6b">Sair da conta</button><button type="button" id="closeDialog">Entendi</button></div></div>
 </div>
 <script src="config.js"></script>
@@ -385,11 +390,11 @@
  document.getElementById('replayHome').addEventListener('click',replay);
  const overlay=document.getElementById('dialogOverlay');const title=document.getElementById('dialogTitle');const text=document.getElementById('dialogText');const links=document.getElementById('dialogLinks');
  function openPanel(name,message,items=[]){document.getElementById('logoutHome').hidden=true;title.textContent=name;text.textContent=message;links.replaceChildren();for(const item of items){const a=document.createElement('a');a.textContent=item.label;a.href=item.href;if(item.external){a.target='_blank';a.rel='noopener noreferrer';}links.append(a);}links.hidden=!items.length;overlay.classList.add('open');document.getElementById('closeDialog').focus();}
- function dialog(name){openPanel(name,'O módulo de reservas está em preparação. Nenhuma reserva será realizada nesta etapa.',[{label:'Acessar área do associado',href:'associados.html?v=20261128-4'}]);}
- function joinPanel(){openPanel('Torne-se associado','Quer fazer parte do Colonial? Entre em contato com o clube para conhecer as condições de associação e solicitar seu cadastro.',[{label:'Falar com o clube pelo WhatsApp',href:'https://wa.me/5521986361883?text=Ol%C3%A1%2C%20quero%20saber%20como%20me%20tornar%20associado%20do%20Colonial%20Esporte%20Clube.',external:true},{label:'Já sou associado — entrar',href:'associados.html?v=20261128-4'}]);}
+ function dialog(name){openPanel(name,'O módulo de reservas está em preparação. Nenhuma reserva será realizada nesta etapa.',[{label:'Acessar área do associado',href:'associados.html?v=20261128-6'}]);}
+ function joinPanel(){openPanel('Torne-se associado','Quer fazer parte do Colonial? Entre em contato com o clube para conhecer as condições de associação e solicitar seu cadastro.',[{label:'Falar com o clube pelo WhatsApp',href:'https://wa.me/5521986361883?text=Ol%C3%A1%2C%20quero%20saber%20como%20me%20tornar%20associado%20do%20Colonial%20Esporte%20Clube.',external:true},{label:'Já sou associado — entrar',href:'associados.html?v=20261128-6'}]);}
  function projectsPanel(){openPanel('Projetos sociais','Conheça as iniciativas de esporte e convivência do Colonial Esporte Clube em Papucaia.',[{label:'Conhecer projetos no site oficial',href:'https://colonialesporteclube.com.br/',external:true}]);}
  function menuPanel(){
-   const items=[tipoAcesso==='associado'?{label:'Área do associado / Carteirinha',href:'associados.html?v=20261128-4'}:{label:'Torne-se associado',href:'torne-se-associado.html'},{label:'Nossa história',href:'#nossa-historia'},{label:'Acesso administrativo',href:'administracao.html'},{label:'Site oficial do clube',href:'https://colonialesporteclube.com.br/',external:true}];
+   const items=[tipoAcesso==='associado'?{label:'Área do associado / Carteirinha',href:'associados.html?v=20261128-6'}:{label:'Torne-se associado',href:'torne-se-associado.html'},{label:'Nossa história',href:'#nossa-historia'},{label:'Acesso administrativo',href:'administracao.html'},{label:'Site oficial do clube',href:'https://colonialesporteclube.com.br/',external:true}];
    openPanel('Menu do aplicativo','Escolha o acesso desejado.',items);
     const historyLink=links.querySelector('a[href="#nossa-historia"]');
     if(historyLink)historyLink.addEventListener('click',event=>{
@@ -417,6 +422,80 @@
  const inicioDireto=!conviteAbertura && new URLSearchParams(location.search).get('inicio')==='1';
  let verificacao=0, membroAutorizado=null, tipoAcesso=null, verificando=false;
  const accessNotice=document.getElementById('accessNotice');
+ // A área da carteirinha usa a mesma origem e a sessão já autenticada.
+ // Exibir após validação cadastral; a foto carrega em segundo plano.
+ let memberFrame=null, memberFrameUid=null, memberReady=false, memberOpen=false, memberRequested=false, memberTimer=null, memberReadyAt=0;
+ let membroAtivo=false;
+ const memberNavStatus=document.getElementById('memberNavStatus');
+ function memberStatus(msg=''){memberNavStatus.textContent=msg;memberNavStatus.hidden=!msg;}
+ function closeMember(useHistory=true){
+   const wasOpen=memberOpen;memberRequested=false;memberOpen=false;memberStatus();
+   if(memberFrame){memberFrame.classList.remove('is-open');memberFrame.inert=true;memberFrame.setAttribute('aria-hidden','true');}
+   home.inert=false;bottomNav.inert=false;home.removeAttribute('aria-hidden');bottomNav.removeAttribute('aria-hidden');
+   if(wasOpen&&!home.hidden)showScreen('menu');
+   if(history.state?.colonialMember){
+     if(useHistory)history.back();
+     else history.replaceState({...history.state,colonialMember:false},'');
+   }
+ }
+ function discardMember(){
+   closeMember(false);clearTimeout(memberTimer);memberTimer=null;
+   if(memberFrame)memberFrame.remove();
+   memberFrame=null;memberFrameUid=null;memberReady=false;memberReadyAt=0;
+ }
+ function prepareMember(uid){
+   if(!uid||!membroAtivo||uid!==membroAutorizado)return;
+   if(memberFrame&&memberFrameUid===uid)return;
+   discardMember();memberFrameUid=uid;
+   const frame=document.createElement('iframe');memberFrame=frame;
+   frame.className='member-view';frame.title='Minha carteirinha digital';frame.inert=true;frame.setAttribute('aria-hidden','true');
+   frame.src='associados.html?v=20261128-6&interno=1';
+   document.getElementById('app').append(frame);
+   memberTimer=setTimeout(()=>{
+     if(memberFrame!==frame||memberReady)return;
+     const requested=memberRequested;discardMember();
+     if(requested)memberStatus('Não foi possível preparar a carteirinha. Toque no botão para tentar novamente.');
+   },15000);
+ }
+ function showMemberView(){
+   if(!memberReady||!memberFrame||!membroAtivo||memberFrameUid!==membroAutorizado||home.hidden)return;
+   memberRequested=false;memberOpen=true;memberStatus();overlay.classList.remove('open');
+   home.inert=true;bottomNav.inert=true;home.setAttribute('aria-hidden','true');bottomNav.setAttribute('aria-hidden','true');
+   memberFrame.inert=false;memberFrame.removeAttribute('aria-hidden');memberFrame.classList.add('is-open');
+   if(!history.state?.colonialMember)history.pushState({...history.state,colonialMember:true},'');
+   memberFrame.focus();
+ }
+ function openMemberView(){
+   if(!membroAutorizado||!membroAtivo||home.hidden)return;
+   prepareMember(membroAutorizado);
+   if(memberReady){showMemberView();return;}
+   memberRequested=true;overlay.classList.remove('open');
+   memberStatus('Consultando sua carteirinha… O menu permanece disponível.');
+ }
+ window.addEventListener('message',event=>{
+   if(!memberFrame||event.origin!==location.origin||event.source!==memberFrame.contentWindow)return;
+   const msg=event.data;
+   if(msg?.type==='colonial:member-ready'&&msg.uid===membroAutorizado&&msg.uid===memberFrameUid&&membroAtivo){
+     clearTimeout(memberTimer);memberTimer=null;memberReady=true;memberReadyAt=Date.now();
+     if(memberRequested)showMemberView();
+   }else if(msg?.type==='colonial:member-back'){
+     closeMember();document.getElementById('memberCardLink').focus({preventScroll:true});
+   }else if(msg?.type==='colonial:member-error'){
+     const requested=memberRequested||memberOpen;discardMember();
+     if(requested)memberStatus('Carteirinha indisponível. Toque no botão para tentar novamente.');
+   }else if(msg?.type==='colonial:member-logout'){
+     ++verificacao;fecharHome();
+   }
+ });
+ if(history.state?.colonialMember)history.replaceState({...history.state,colonialMember:false},'');
+ window.addEventListener('popstate',()=>{if(memberOpen&&!history.state?.colonialMember)closeMember(false);else if(history.state?.colonialMember&&memberReady&&!memberOpen)showMemberView();});
+ document.addEventListener('click',e=>{
+   if(!membroAtivo||!membroAutorizado||home.hidden)return;
+   const a=e.target.closest('a[href]');if(!a)return;
+   const url=new URL(a.href,location.href);
+   if(url.origin===location.origin&&url.pathname===new URL('associados.html',location.href).pathname){e.preventDefault();openMemberView();}
+ });
+
  // Conteúdo dinâmico: a RLS do Supabase autoriza cada registro e cada mídia.
  const cmsCategorias={noticia:'NOTÍCIA',evento:'AGENDA DO COLONIAL',publicidade:'PUBLICIDADE',vantagem:'CLUBE DE VANTAGENS'};
  const cmsCards=new Map();let cmsSeq=0,cmsOwner=null,cmsAtivo=false;
@@ -513,6 +592,7 @@
  }
 
  function fecharHome(mensagem=''){
+   membroAtivo=false;discardMember();
    cmsClear();
    home.hidden=true;bottomNav.hidden=true;boot.hidden=true;intro.hidden=false;
    overlay.classList.remove('open');membroAutorizado=null;tipoAcesso=null;
@@ -562,10 +642,17 @@
      if(id!==verificacao)return;
      aplicarPerfil(tipo,perfil.situacao);
      membroAutorizado=user.id;
+     membroAtivo=tipo==='associado'&&perfil.situacao==='ativo';
+     if(!membroAtivo||(memberFrameUid&&memberFrameUid!==user.id))discardMember();
+
      const first=String(perfil.nome||'').trim().split(/\s+/)[0].toLocaleLowerCase('pt-BR');
      document.getElementById('homeWelcome').textContent=first?'Seja bem-vindo, '+first.charAt(0).toLocaleUpperCase('pt-BR')+first.slice(1)+'!':'SEJA BEM-VINDO';
      accessNotice.hidden=true;
      if(home.hidden)enterHome();
+     if(membroAtivo){
+       if(memberReady&&!memberOpen&&!memberRequested&&Date.now()-memberReadyAt>300000)discardMember();
+       prepareMember(user.id);
+     }
      cmsLoad(sb,user.id,tipo==='associado'&&perfil.situacao==='ativo');
    }catch(e){if(id===verificacao)fecharHome(e.message||'Não foi possível validar o acesso.');}
    finally{verificando=false;}
@@ -573,6 +660,7 @@
   const screens={menu:['atalhos','homeDisclaimer'],history:['nossa-historia'],news:['clubNews'],events:['clubAgenda'],sports:['sportsNews'],benefits:['benefitsSection'],sponsors:['cms-publicidade-section'],notices:['cms-comunicados-section'],contact:['contactSection'],projects:['projectsSection']};
   function updateScreenEmpty(){const key=home.dataset.screen;const target=screens[key]?.[0];document.getElementById('screenEmpty').hidden=!(target&&['sponsors','notices'].includes(key)&&document.getElementById(target).hidden);}
   function showScreen(key,preview=false){
+    if(memberRequested){memberRequested=false;memberStatus();}
     if(!screens[key])key='menu';
     if(key==='benefits'&&document.getElementById('benefitsMenu').hidden&&!preview)key='menu';
     home.dataset.screen=key;
@@ -636,7 +724,7 @@
  }else{
    boot.hidden=true;intro.hidden=false;const autoplay=video.play();if(autoplay&&typeof autoplay.catch==='function')autoplay.catch(()=>startOverlay.classList.add('visible'));
  }
- document.getElementById('navStart').addEventListener('click',()=>showScreen('menu'));document.getElementById('navAssoc').addEventListener('click',()=>location.assign(tipoAcesso==='associado'?'associados.html?v=20261128-4':'torne-se-associado.html'));document.getElementById('navBookings').addEventListener('click',()=>dialog('Reserva de espaços'));document.getElementById('navMore').addEventListener('click',menuPanel);
+ document.getElementById('navStart').addEventListener('click',()=>showScreen('menu'));document.getElementById('navAssoc').addEventListener('click',()=>{if(membroAtivo)openMemberView();else location.assign(tipoAcesso==='associado'?'associados.html?v=20261128-6':'torne-se-associado.html');});document.getElementById('navBookings').addEventListener('click',()=>dialog('Reserva de espaços'));document.getElementById('navMore').addEventListener('click',menuPanel);
 })();
 </script>
 </body>
