@@ -344,7 +344,7 @@ ctx.filter = 'none';
     const {data:person,error}=await sb.from('associados')
       .select('nome,matricula,situacao,caminho_foto,foto_pendente,foto_troca_autorizada,token_validacao')
       .eq('usuario_auth_id',user.id).maybeSingle();
-    if(error){app.status('loginStatus','Não foi possível carregar seu cadastro.','error');return;}
+    if(error){loginPanel.hidden=true;memberPanel.hidden=false;card.hidden=true;notice.hidden=false;notice.textContent='Não foi possível carregar seu cadastro. Volte ao menu e tente novamente.';return;}
     activeMember=person;card.hidden=true;loginPanel.hidden=true;memberPanel.hidden=false;
     atualizarEnvioFoto(person);
     document.getElementById('fallbackPhoto').textContent=person?.foto_pendente?'AGUARDANDO APROVAÇÃO':'TOQUE PARA ENVIAR FOTO';
@@ -613,10 +613,20 @@ ctx.filter = 'none';
         await entrarBio();
       } else if(session) {
         await showMember();
+      } else {
+        loginPanel.hidden=false;
       }
+    } catch (error) {
+      loginPanel.hidden=true;
+      memberPanel.hidden=false;
+      card.hidden=true;
+      notice.hidden=false;
+      notice.textContent='Não foi possível verificar seu acesso. Volte ao menu e tente novamente.';
     } finally {
       btn.disabled=false;
     }
+  } else {
+    loginPanel.hidden=false;
   }
 })();
     
