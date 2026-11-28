@@ -321,7 +321,7 @@ ctx.filter = 'none';
       const {data,error:authError}=await sb.auth.getUser();
       const uid=data?.user?.id;if(authError||!uid)throw new Error('Entre novamente na sua conta para enviar a foto.');
       const blob=await prepararFoto(file);
-      const path=uid+'/pendente/'+crypto.randomUUID()+'.jpg';
+      const path=uid+'/pendente/'+crypto.randomUUID()+'-fundo-branco.jpg';
       const {error:uploadError}=await sb.storage.from('fotos-associados').upload(path,blob,{contentType:'image/jpeg',upsert:false});
       if(uploadError)throw new Error('Não foi possível armazenar a foto. Verifique a conexão e as permissões.');
       const {error:rpcError}=await sb.rpc('solicitar_foto_associado',{p_caminho:path});
@@ -345,12 +345,12 @@ ctx.filter = 'none';
       .select('nome,matricula,situacao,caminho_foto,foto_pendente,foto_troca_autorizada,token_validacao')
       .eq('usuario_auth_id',user.id).maybeSingle();
     if(error){app.status('loginStatus','Não foi possível carregar seu cadastro.','error');return;}
-    activeMember=person;loginPanel.hidden=true;memberPanel.hidden=false;
+    activeMember=person;card.hidden=true;loginPanel.hidden=true;memberPanel.hidden=false;
     atualizarEnvioFoto(person);
     document.getElementById('fallbackPhoto').textContent=person?.foto_pendente?'AGUARDANDO APROVAÇÃO':'TOQUE PARA ENVIAR FOTO';
     if(!person){notice.hidden=false;notice.textContent='Seu usuário ainda não está vinculado a um cadastro no Colonial. Procure a administração.';card.hidden=true;return;}
     if(person.situacao!=='ativo'){notice.hidden=false;notice.textContent=`Sua situação cadastral é: ${person.situacao.toUpperCase()}. A carteirinha não está liberada.`;card.hidden=true;return;}
-    notice.hidden=true;card.hidden=false;
+    notice.hidden=true;
     document.getElementById('memberName').textContent=person.nome;
     document.getElementById('memberNumber').textContent=person.matricula;
     document.getElementById('memberStatus').textContent='ATIVO';
@@ -363,13 +363,26 @@ ctx.filter = 'none';
     app.status('cardStatusMessage','Sua carteirinha é pessoal. A validação depende de conexão com a internet.');
     const caminhoExibido = person.foto_pendente || person.caminho_foto;
     if (localPhotoUser !== user.id || localPhotoPath !== caminhoExibido) limparFotoLocal();
-    if (!caminhoExibido) return;
-    if (localPhotoPreview) { mostrarFoto(localPhotoPreview); return; }
-    const fallback = document.getElementById('fallbackPhoto');
-    fallback.textContent = 'CARREGANDO FOTO…';
-    // O QR já está pronto. A fotografia não bloqueia a abertura da carteirinha.
-    void carregarFoto(person, user.id, caminhoExibido);
+    if (caminhoExibido) {
+      if (localPhotoPreview) {
+        try { await exibirFotoPronta(localPhotoPreview, person); }
+        catch (_) { limparFotoLocal(); await carregarFoto(person, user.id, caminhoExibido); }
+      } else {
+        app.status('cardStatusMessage','Preparando sua carteirinha…');
+        await carregarFoto(person, user.id, caminhoExibido);
+      }
+    }
+    if (activeMember !== person) return;
+    card.hidden=false;
+    app.status('cardStatusMessage','Sua carteirinha é pessoal. A validação depende de conexão com a internet.');
   }
+  async function exibirFotoPronta(url, person) {
+    const imagem = new Image();
+    imagem.src = url;
+    await imagem.decode();
+    if (activeMember === person) mostrarFoto(url);
+  }
+
   async function carregarFoto(person, uid, caminho) {
     const atual = () => activeMember === person &&
       (person.foto_pendente || person.caminho_foto) === caminho;
@@ -381,12 +394,13 @@ ctx.filter = 'none';
       if (!resposta.ok) throw new Error('Foto indisponível');
       const imagem = await resposta.blob();
       if (!atual()) return;
-      const tratada = await prepararFoto(imagem);
+      // Novos arquivos identificados já foram tratados antes do envio.
+      const tratada = caminho.endsWith('-fundo-branco.jpg') ? imagem : await prepararFoto(imagem);
       if (!atual()) return;
       limparFotoLocal();
       localPhotoPreview = URL.createObjectURL(tratada);
       localPhotoPath = caminho; localPhotoUser = uid;
-      mostrarFoto(localPhotoPreview);
+      await exibirFotoPronta(localPhotoPreview, person);
     } catch (erro) {
       console.warn('Não foi possível preparar a fotografia:', erro);
       if (atual()) document.getElementById('fallbackPhoto').textContent = 'FOTO INDISPONÍVEL';
