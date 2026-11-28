@@ -11,6 +11,12 @@
   const galleryInput = document.getElementById('galleryInput');
   let activeMember = null;
   let localPhotoPreview = null;
+  let localPhotoPath = null;
+  let localPhotoUser = null;
+  function limparFotoLocal() {
+    if (localPhotoPreview) URL.revokeObjectURL(localPhotoPreview);
+    localPhotoPreview = null; localPhotoPath = null; localPhotoUser = null;
+  }
   function mostrarFoto(url) {
     const photo = document.getElementById('memberPhoto');
     const empty = document.getElementById('fallbackPhoto');
@@ -322,8 +328,9 @@ ctx.filter = 'none';
       if(rpcError)throw new Error('Foto enviada, mas não encaminhada à aprovação. Procure a administração.');
       activeMember.foto_pendente=path;
       activeMember.foto_troca_autorizada=false;
-      if (localPhotoPreview) URL.revokeObjectURL(localPhotoPreview);
+      limparFotoLocal();
       localPhotoPreview = URL.createObjectURL(blob);
+      localPhotoPath = path; localPhotoUser = uid;
       mostrarFoto(localPhotoPreview);
       atualizarEnvioFoto(activeMember);
       app.status('photoStatus','Fotografia enviada! Aguarde a aprovação da administração.');
@@ -333,7 +340,7 @@ ctx.filter = 'none';
   selfieInput.addEventListener('change',enviarFoto);galleryInput.addEventListener('change',enviarFoto);
   async function showMember(){
     const {data:userData,error:userError}=await sb.auth.getUser();const user=userData?.user;
-    if(userError||!user){loginPanel.hidden=false;memberPanel.hidden=true;return;}
+    if(userError||!user){activeMember=null;limparFotoLocal();loginPanel.hidden=false;memberPanel.hidden=true;return;}
     const {data:person,error}=await sb.from('associados')
       .select('nome,matricula,situacao,caminho_foto,foto_pendente,foto_troca_autorizada,token_validacao')
       .eq('usuario_auth_id',user.id).maybeSingle();
@@ -349,49 +356,41 @@ ctx.filter = 'none';
     document.getElementById('memberStatus').textContent='ATIVO';
     document.getElementById('memberPhoto').hidden=true;
     document.getElementById('fallbackPhoto').hidden=false;
-    // Mostra a foto APROVADA ou a FOTO PENDENTE como pre-visualizacao, sem
-    // dar ao associado a possibilidade de substituir a foto ja enviada.
-    const caminhoExibido = person.foto_pendente || person.caminho_foto;
-    if (caminhoExibido) {
-      const {data:photo,error:photoError}=await sb.storage.from('fotos-associados').createSignedUrl(caminhoExibido,120);
-      
-if (!photoError && photo?.signedUrl) {
-    mostrarFoto(photo.signedUrl);
-
-    const membroAtual = person;
-    const fotoOriginal = photo.signedUrl;
-
-    try {
-        const resposta = await fetch(fotoOriginal);
-        if (!resposta.ok) {
-            throw new Error('Foto indisponível');
-        }
-
-        const imagem = await resposta.blob();
-        const fotoTratada = await prepararFoto(imagem);
-
-        if (activeMember === membroAtual) {
-            if (localPhotoPreview) {
-                URL.revokeObjectURL(localPhotoPreview);
-            }
-
-            localPhotoPreview = URL.createObjectURL(fotoTratada);
-            mostrarFoto(localPhotoPreview);
-        }
-    } catch (erro) {
-        console.warn('Não foi possível remover o fundo:', erro);
-    }
-}
-
-      else if (localPhotoPreview) mostrarFoto(localPhotoPreview);
-      else document.getElementById('fallbackPhoto').textContent='FOTO EM ANALISE';
-    }
-
     const url=new URL(app.config.appBaseUrl.replace(/\/$/,'')+'/validar.html');url.searchParams.set('t',person.token_validacao);
     const qr=document.getElementById('qr');qr.replaceChildren();
     if(window.QRCode)new window.QRCode(qr,{text:url.toString(),width:256,height:256,correctLevel:window.QRCode.CorrectLevel.M});
     else{const a=document.createElement('a');a.href=url.href;a.textContent='Validar carteirinha';qr.append(a);}
     app.status('cardStatusMessage','Sua carteirinha é pessoal. A validação depende de conexão com a internet.');
+    const caminhoExibido = person.foto_pendente || person.caminho_foto;
+    if (localPhotoUser !== user.id || localPhotoPath !== caminhoExibido) limparFotoLocal();
+    if (!caminhoExibido) return;
+    if (localPhotoPreview) { mostrarFoto(localPhotoPreview); return; }
+    const fallback = document.getElementById('fallbackPhoto');
+    fallback.textContent = 'CARREGANDO FOTO…';
+    // O QR já está pronto. A fotografia não bloqueia a abertura da carteirinha.
+    void carregarFoto(person, user.id, caminhoExibido);
+  }
+  async function carregarFoto(person, uid, caminho) {
+    const atual = () => activeMember === person &&
+      (person.foto_pendente || person.caminho_foto) === caminho;
+    try {
+      const {data, error} = await sb.storage.from('fotos-associados').createSignedUrl(caminho,120);
+      if (error || !data?.signedUrl) throw new Error('Foto indisponível');
+      if (!atual()) return;
+      const resposta = await fetch(data.signedUrl);
+      if (!resposta.ok) throw new Error('Foto indisponível');
+      const imagem = await resposta.blob();
+      if (!atual()) return;
+      const tratada = await prepararFoto(imagem);
+      if (!atual()) return;
+      limparFotoLocal();
+      localPhotoPreview = URL.createObjectURL(tratada);
+      localPhotoPath = caminho; localPhotoUser = uid;
+      mostrarFoto(localPhotoPreview);
+    } catch (erro) {
+      console.warn('Não foi possível preparar a fotografia:', erro);
+      if (atual()) document.getElementById('fallbackPhoto').textContent = 'FOTO INDISPONÍVEL';
+    }
   }
     // Preferencia de acesso biometrico neste navegador
   const bioKey = 'colonial-bio-preferencia-v2';
@@ -586,10 +585,7 @@ if (!photoError && photo?.signedUrl) {
     card.hidden=true;
     activeMember=null;
 
-    if(localPhotoPreview){
-      URL.revokeObjectURL(localPhotoPreview);
-      localPhotoPreview=null;
-    }
+    limparFotoLocal();
   });
 
   if(sb){
