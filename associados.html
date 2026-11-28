@@ -36,7 +36,7 @@
 <div class="shell">
   <header class="top"><div class="topline"><a class="brand" href="./?inicio=1"><img src="assets/brasao-colonial.png" alt="Brasão do Colonial"><span><b>COLONIAL ESPORTE CLUBE</b><small>DESDE 1955 • PAPUCAIA</small></span></a><a class="back" href="./?inicio=1">← INÍCIO</a></div><h1 id="memberWelcome">Área do associado.</h1><p id="memberWelcomeText">Entre para consultar sua carteirinha digital e a situação da sua associação.</p></header>
   <div class="inner"><div id="setupNotice" class="note warning" hidden>Esta etapa está pronta para conectar ao banco de dados. Nenhum CPF ou senha deve ser digitado antes da configuração.</div>
-    <section class="panel" id="loginPanel"><h2>Entrar</h2><p>Seu acesso pessoal ao Colonial.</p>
+    <section class="panel" id="loginPanel" hidden><h2>Entrar</h2><p>Seu acesso pessoal ao Colonial.</p>
       <form id="loginForm" autocomplete="on"><label class="label" for="cpf">CPF do associado</label><input id="cpf" name="username" type="text" inputmode="numeric" maxlength="14" autocomplete="username" placeholder="000.000.000-00" required><label class="label" for="senha">Senha</label><input id="senha" type="password" autocomplete="current-password" minlength="8" placeholder="Digite sua senha" required><button class="btn full" id="loginBtn">ENTRAR NA CARTEIRINHA</button></form><p id="loginStatus" class="status" role="status"></p>
       <p class="small">Primeiro acesso? A administração do clube envia um convite ao e-mail cadastrado para você criar sua senha.</p><a href="ativar-conta.html" class="small">Definir ou recuperar senha</a>
     </section>
@@ -56,21 +56,21 @@
       <div class="note" style="margin-top:15px">A validação consulta a situação atual no banco. Uma carteirinha suspensa ou rejeitada deixa de ser válida.</div>
       <p id="cardStatusMessage" class="status" role="status"></p>
     </section>
-    <div class="panel" id="joinMemberPanel"><h2>Ainda não é associado?</h2><p>Entre em contato com o Colonial para obter informações sobre associação e cadastro.</p><a class="btn full light" href="https://wa.me/5521986361883?text=Ol%C3%A1%2C%20quero%20informa%C3%A7%C3%B5es%20sobre%20associa%C3%A7%C3%A3o%20no%20Colonial%20Esporte%20Clube" target="_blank" rel="noopener">FALAR COM O COLONIAL</a></div>
+    <div class="panel" id="joinMemberPanel" hidden><h2>Ainda não é associado?</h2><p>Entre em contato com o Colonial para obter informações sobre associação e cadastro.</p><a class="btn full light" href="https://wa.me/5521986361883?text=Ol%C3%A1%2C%20quero%20informa%C3%A7%C3%B5es%20sobre%20associa%C3%A7%C3%A3o%20no%20Colonial%20Esporte%20Clube" target="_blank" rel="noopener">FALAR COM O COLONIAL</a></div>
   </div><footer class="footer">COLONIAL ESPORTE CLUBE • PAPUCAIA, RJ<br>Seu acesso é individual. Não compartilhe sua senha.</footer>
 </div>
-<script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/selfie_segmentation.js"></script><script src="js/client.js"></script><script src="js/associados.js?v=9"></script>
+<script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/selfie_segmentation.js"></script><script src="js/client.js"></script><script src="js/associados.js?v=20261128-2"></script>
 <script>
 (()=>{
  const panel=document.getElementById('memberPanel'),card=document.getElementById('card'),name=document.getElementById('memberName'),title=document.getElementById('memberWelcome'),subtitle=document.getElementById('memberWelcomeText'),join=document.getElementById('joinMemberPanel');
  let request=0;
  function greet(full){const first=String(full||'').trim().split(/\s+/)[0].toLocaleLowerCase('pt-BR');title.textContent=first?'Seja bem-vindo, '+first.charAt(0).toLocaleUpperCase('pt-BR')+first.slice(1)+'!':'Seja bem-vindo!';}
- async function update(){const id=++request;join.hidden=!panel.hidden;if(panel.hidden){title.textContent='Área do associado.';subtitle.textContent='Entre para consultar sua carteirinha digital e a situação da sua associação.';return;}
+ async function update(){const id=++request;join.hidden=document.getElementById("loginPanel").hidden || !panel.hidden;if(panel.hidden){title.textContent='Área do associado.';subtitle.textContent='Entre para consultar sua carteirinha digital e a situação da sua associação.';return;}
  subtitle.textContent='Sua área exclusiva no Colonial Esporte Clube.';
  if(!card.hidden&&name.textContent.trim()){greet(name.textContent);return;}
  greet('');const sb=window.colonial?.client;if(!sb)return;try{const {data:{user},error}=await sb.auth.getUser();if(error||!user)return;const {data:person,error:memberError}=await sb.from('associados').select('nome').eq('usuario_auth_id',user.id).maybeSingle();if(id===request&&!panel.hidden&&!memberError)greet(person?.nome);}catch(_){}
  }
- const observer=new MutationObserver(update);observer.observe(panel,{attributes:true,attributeFilter:['hidden']});observer.observe(card,{attributes:true,attributeFilter:['hidden']});observer.observe(name,{childList:true,characterData:true,subtree:true});update();
+ const observer=new MutationObserver(update);observer.observe(document.getElementById("loginPanel"),{attributes:true,attributeFilter:["hidden"]});observer.observe(panel,{attributes:true,attributeFilter:['hidden']});observer.observe(card,{attributes:true,attributeFilter:['hidden']});observer.observe(name,{childList:true,characterData:true,subtree:true});update();
 })();
 </script>
 </body></html>
