@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#061d40"><title>Diagnóstico Firebase | Colonial</title><style>
+*{box-sizing:border-box}body{margin:0;background:#edf2f8;color:#183451;font:16px/1.6 Arial,sans-serif}main{max-width:680px;margin:30px auto;padding:16px}header{background:#061d40;color:#fff;padding:24px;border-radius:16px 16px 0 0;display:flex;align-items:center;gap:16px}header img{width:64px;height:64px;object-fit:contain}h1{font-size:23px;line-height:1.25;margin:0}header small{color:#c8d9ed}.panel{padding:24px;background:#fff;border-radius:0 0 16px 16px;box-shadow:0 8px 30px #12345618}button,a.link{font:inherit;font-weight:bold}button{display:block;width:100%;border:0;border-radius:9px;padding:14px;background:#124b91;color:white;cursor:pointer}button:disabled{opacity:.55;cursor:wait}a.link{display:block;text-align:center;color:#124b91;margin-top:18px}#result{white-space:pre-wrap;overflow-wrap:anywhere;background:#edf3fa;border:1px solid #ccd9e8;border-radius:9px;padding:15px;margin:18px 0 0;min-height:74px}#result.ok{background:#edf8ef;color:#185b32;border-color:#acd7b8}#result.fail{background:#fff2f0;color:#892a23;border-color:#e7c3bf}p{margin:0 0 18px}small{font-size:12px}
+</style></head><body><main><header><img src="assets/brasao-colonial.png" alt="Brasão do Colonial"><div><small>COLONIAL ESPORTE CLUBE</small><h1>Teste de conexão Firebase</h1></div></header><section class="panel"><p>Faça login na Central Administrativa antes de testar. O diagnóstico não envia notificações reais nem exibe credenciais.</p><button type="button" id="test">TESTAR CONEXÃO</button><div id="result" role="status" aria-live="polite">Pronto para iniciar o teste.</div><a class="link" href="administracao.html">Voltar à administração</a></section></main>
+<script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script><script src="js/client.js"></script><script>
+(() => {
+  'use strict';
+  const button=document.getElementById('test'), output=document.getElementById('result');
+  const show=(message,kind='')=>{output.className=kind;output.textContent=message;};
+  const errors=new Set(['Login obrigatório.','Sessão inválida.','Acesso não autorizado.','Credencial Firebase não encontrada.','Credencial Firebase incompatível.','Firebase recusou a autenticação.','Token Firebase indisponível.','Autenticado, mas a validação FCM falhou.','Falha na configuração ou comunicação com o Firebase.','Método não permitido.']);
+  button.addEventListener('click',async()=>{
+    button.disabled=true;show('Verificando sessão administrativa...');
+    try{
+      const sb=window.colonial?.client;
+      if(!sb){show('Não foi possível iniciar o cliente Supabase. Confira a publicação dos arquivos e a conexão.','fail');return;}
+      const {data:user,error:authError}=await sb.auth.getUser();
+      if(authError||!user?.user){show('Sessão não encontrada ou inválida. Entre na administração e volte a esta página.','fail');return;}
+      const permission=await sb.rpc('conteudo_admin');
+      if(permission.error||permission.data!==true){show('Não foi possível confirmar a autorização de administrador. O teste não foi executado.','fail');return;}
+      show('Administrador confirmado. Consultando a função testar-firebase...');
+      const {data,error,response}=await sb.functions.invoke('testar-firebase',{body:{}});
+      const http=response?.status??error?.context?.status;
+      const info=Number.isInteger(http)?'\nHTTP: '+http:'';
+      if(error){
+        let details=null;
+        try{if(typeof error.context?.json==='function')details=await error.context.clone().json();}catch(_){}
+        const msg=errors.has(details?.erro)?details.erro:'A função retornou um erro ou não pôde ser alcançada.';
+        const google=Number.isInteger(details?.status_google)?'\nStatus Google: '+details.status_google:'';
+        const fcm=Number.isInteger(details?.status_fcm)?'\nStatus FCM: '+details.status_fcm:'';
+        show('TESTE NÃO CONCLUÍDO\n'+msg+info+google+fcm,'fail');return;
+      }
+      if(data?.sucesso===true&&data?.projeto==='colonial-esporte-clube'&&data?.notificacao_enviada===false){show('FIREBASE CONECTADO COM SUCESSO!\nProjeto: colonial-esporte-clube\nValidação da API concluída.\nNenhuma notificação enviada.'+info,'ok');return;}
+      if(typeof data?.message==='string'&&/^Hello\b/i.test(data.message)){show('CÓDIGO PADRÃO AINDA EM EXECUÇÃO\nO Supabase respondeu com o modelo Hello, e não com o teste Firebase. Confira o código e a publicação da função testar-firebase.'+info,'fail');return;}
+      show('RESPOSTA INESPERADA\nA função respondeu, mas não confirmou a validação do Firebase.'+info,'fail');
+    }catch(_){show('Falha de comunicação. Confira a conexão com a internet e a disponibilidade do Supabase.','fail');}
+    finally{button.disabled=false;}
+  });
+})();
+</script></body></html>
